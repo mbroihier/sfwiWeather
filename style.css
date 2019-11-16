@@ -1,0 +1,49 @@
+h1,p {
+    text-align: center;
+}
+
+ul {
+    margin-left: 25%;
+    margin-top: 10px;
+    text-align: center;
+}
+
+li {
+    text-align: left;
+}
+
+body {
+    font-family: verdana;
+    color: #000000;
+}
+
+a {
+    font-family: verdana;
+    color: #000000;
+}
+
+body input,body label {
+    display: block;
+}
+
+table, td, tr, th {
+    empty-cells: show;
+    border: 2px solid #000;
+    border-collapse: collapse;
+}
+
+.failed {
+    color: red;
+}
+
+#ownAxis input {
+    float: left;
+}
+
+#removedLines input {
+    float: left;
+}
+
+#removedLines {
+    display: none;
+}
