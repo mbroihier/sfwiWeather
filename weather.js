@@ -35,6 +35,7 @@ var debug = false;
 
 var firstTime = true;
 
+process.env.TZ = 'US/Central';
 // check for changes 
 setInterval(function(){
     let changed = false;
@@ -75,9 +76,22 @@ app.get("/", function(request, response, next) {
 	    //console.log("Document portion:", replyDocument.body.textContent);
 	    let replyJSON = JSON.parse(replyDocument.body.textContent); // make JSON object
 	    //console.log(replyJSON);
-	    let temperature = Number((32.0 + 9.0/5.0 * parseFloat(replyJSON.properties.temperature.value)).toFixed(1));
+	    let temperature = Number((32.0 + 9.0/5.0 * parseFloat(replyJSON.properties.temperature.value)).toFixed(0));
 	    let windSpeed = Number((2.237 * parseFloat(replyJSON.properties.windSpeed.value)).toFixed(1));
+	    if (isNaN(windSpeed)) {
+		windSpeed = "at an unavailable speed";
+		console.log("wind speed: ", replyJSON.properties.windSpeed.value);
+	    } else {
+		windSpeed = " at " + windSpeed + " mph";
+	    }
 	    let direction = parseInt(replyJSON.properties.windDirection.value);
+	    if (isNaN(direction)) {
+		direction = "Wind direction not provided";
+		console.log("wind direction: ", replyJSON.properties.windDirection.value);
+		console.log("wind speed: ", replyJSON.properties.windSpeed.value);
+	    } else {
+		direction = "Wind from " + direction + "\xb0";
+	    }
 	    //console.log("Temperature:", temperature, "degrees F");
 	    let asciiTemperature = temperature + "\xB0F";
 	    //console.log("Sky:", replyJSON.properties.textDescription);
@@ -89,7 +103,9 @@ app.get("/", function(request, response, next) {
 		} else if (element.getAttribute('name') == 'description') {
 		    element.innerHTML = replyJSON.properties.textDescription;
 		} else if (element.getAttribute('name') == 'wind') {
-		    element.innerHTML = "Wind from " + direction + "\xb0 at " + windSpeed + " mph";
+		    element.innerHTML = direction + windSpeed;
+		} else if (element.getAttribute('name') == 'time') {
+		    element.innerHTML = "Last report: " + new Date(replyJSON.properties.timestamp);
 		}
 		    
 	    }

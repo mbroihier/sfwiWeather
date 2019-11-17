@@ -1,9 +1,15 @@
-h1,p {
+h1 {
+    font-size: 400%;
+    text-align: center;
+}
+
+p {
+    font-size: 200%;
     text-align: center;
 }
 
 iframe {
-    margin-left: 100px;
+    margin-left: 50px;
 }
 
 ul {
