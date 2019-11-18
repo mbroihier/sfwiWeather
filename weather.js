@@ -58,8 +58,6 @@ var updateJSONObject = function () {
 
 var lastUpdateTime = null;
 
-updateJSONObject();
-
 // initialize global information
 
 var ONE_INTERVAL = 600000;
