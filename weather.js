@@ -20,51 +20,18 @@ var databaseStatus = true;
 // Read main html page - this will be parsed later
 let mainPageContents = fs.readFileSync("./index.html");
 var app = express();
-var statTime = [];
 var relay = [];
 var marketChanged = false;
 
 var https = require("https");
 
+var JSONObject = null;
 
-// initialize global information
-
-var ONE_DAY = 3600000 * 24;
-
-var debug = false;
-
-var firstTime = true;
-
-process.env.TZ = 'US/Central';
-// check for changes 
-setInterval(function(){
-    let changed = false;
-    for (let entry of statTime) {
-      changed |= fs.statSync(entry.Path).ctime.valueOf() != entry.Time.valueOf();
-      entry.Time = fs.statSync(entry.Path).ctime;
-    }
-    if (changed) {
-      // do stuff commanded from external event
-      console.log("need to do something");
-    }
-    let delta = (new Date()) - fs.statSync("weatherUpdated").mtime.valueOf();
-    if (firstTime) {
-	// do first time things
-	firstTime = false;
-    }
-  },1000);
-// if the express server is contacted, look at the request and build a response or
-// forward the request to the standard server behavior.
-app.get("/", function(request, response, next) {
-    // this is the main page so build replacement DOM
-    // that has the sections available to edit
-    let files = fs.readdirSync("./");
-    let dom = new jsdom.JSDOM(mainPageContents);
-    let document = dom.window.document;
-    let query = https.request({ protocol: "https:", hostname: "api.weather.gov", path: "/stations/KTKI/observations/latest", port: 443, method: "GET", headers: {'User-Agent' : "localWeatherServer", "Accept" : "application/geo+json"}}, function (result) {
+var updateJSONObject = function () {
+    let query = https.request({ protocol: "https:", hostname: "api.weather.gov", path: "/gridpoints/FWD/90,117/forecast/hourly", port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com", "Accept" : "application/geo+json"}}, function (result) {
 	let bodySegments = [];
 	result.on("data", function (data) {
-	    console.log("Got some data from api");
+	    //console.log("Got some data from api");
 	    bodySegments.push(data);
 	});
 
@@ -75,41 +42,8 @@ app.get("/", function(request, response, next) {
 	    let replyDocument = replyDOM.window.document;
 	    //console.log("Document portion:", replyDocument.body.textContent);
 	    let replyJSON = JSON.parse(replyDocument.body.textContent); // make JSON object
-	    //console.log(replyJSON);
-	    let temperature = Number((32.0 + 9.0/5.0 * parseFloat(replyJSON.properties.temperature.value)).toFixed(0));
-	    let windSpeed = Number((2.237 * parseFloat(replyJSON.properties.windSpeed.value)).toFixed(1));
-	    if (isNaN(windSpeed)) {
-		windSpeed = "at an unavailable speed";
-		console.log("wind speed: ", replyJSON.properties.windSpeed.value);
-	    } else {
-		windSpeed = " at " + windSpeed + " mph";
-	    }
-	    let direction = parseInt(replyJSON.properties.windDirection.value);
-	    if (isNaN(direction)) {
-		direction = "Wind direction not provided";
-		console.log("wind direction: ", replyJSON.properties.windDirection.value);
-		console.log("wind speed: ", replyJSON.properties.windSpeed.value);
-	    } else {
-		direction = "Wind from " + direction + "\xb0";
-	    }
-	    //console.log("Temperature:", temperature, "degrees F");
-	    let asciiTemperature = temperature + "\xB0F";
-	    //console.log("Sky:", replyJSON.properties.textDescription);
-	    let elements = dom.window.document.querySelectorAll("p");
-	    for (let element of elements) {
-		//console.log("element: ", element, element.getAttribute('name'));
-		if (element.getAttribute('name') == 'temperature') {
-		    element.innerHTML = asciiTemperature;
-		} else if (element.getAttribute('name') == 'description') {
-		    element.innerHTML = replyJSON.properties.textDescription;
-		} else if (element.getAttribute('name') == 'wind') {
-		    element.innerHTML = direction + windSpeed;
-		} else if (element.getAttribute('name') == 'time') {
-		    element.innerHTML = "Last report: " + new Date(replyJSON.properties.timestamp);
-		}
-		    
-	    }
-	    response.send(dom.serialize());
+	    JSONObject = replyJSON;
+	    lastUpdateTime = new Date();
 	});
 	result.on("error", function(){
 	    console.log("query error on result path");
@@ -119,8 +53,80 @@ app.get("/", function(request, response, next) {
     query.on("error", function(error) {
 	console.log("query error: " + error);
     });
-    query.end();
-    //response.send(dom.serialize());
+    query.end();    
+};
+
+var lastUpdateTime = null;
+
+updateJSONObject();
+
+// initialize global information
+
+var ONE_INTERVAL = 600000;
+
+var debug = false;
+
+var firstTime = true;
+
+process.env.TZ = 'US/Central';
+// check for changes 
+setInterval(function(){
+    let delta = new Date() - lastUpdateTime;
+    if (delta > ONE_INTERVAL) {
+	console.log("Updating JSON object");
+	updateJSONObject();
+    }
+},1000);
+// if the express server is contacted, look at the request and build a response or
+// forward the request to the standard server behavior.
+app.get("/", function(request, response, next) {
+    console.log("processing /index.html");
+    console.log(request.url);
+    console.log(request.method);
+    // this is the main page so build replacement DOM
+    // that has the sections available to edit
+    let dom = new jsdom.JSDOM(mainPageContents);
+    let document = dom.window.document;
+    //console.log(JSONObject);
+    // fill in forecast table and estimate temperature at time of table generation
+    let insertionPoint = dom.window.document.querySelector("#forecastTable");
+    let count = 0;
+    for (let forecastObject of JSONObject.properties.periods) {
+	if ((count % 6) == 0) {
+	    let tableRow = dom.window.document.createElement("tr");
+	    let tableCellDate = dom.window.document.createElement("td");
+	    tableCellDate.innerHTML = new Date(forecastObject.startTime);
+	    tableRow.appendChild(tableCellDate);
+	    let tableCellTemp = dom.window.document.createElement("td");
+	    tableCellTemp.innerHTML = forecastObject.temperature;
+	    tableRow.appendChild(tableCellTemp);
+	    let tableCellWind = dom.window.document.createElement("td");
+	    tableCellWind.innerHTML = forecastObject.windSpeed;
+	    tableRow.appendChild(tableCellWind);
+	    let tableCellDesc = dom.window.document.createElement("td");
+	    tableCellDesc.innerHTML = forecastObject.shortForecast;
+	    tableRow.appendChild(tableCellDesc);
+	    insertionPoint.appendChild(tableRow);
+	}
+	count = count + 1;
+    }
+    let temperature = JSONObject.properties.periods[0].temperature;
+    let windSpeed = JSONObject.properties.periods[0].windSpeed;
+    let direction = JSONObject.properties.periods[0].windDirection;
+    let asciiTemperature = temperature + "\xB0F";
+    let elements = dom.window.document.querySelectorAll("p");
+    for (let element of elements) {
+	if (element.getAttribute('name') == 'temperature') {
+	    element.innerHTML = asciiTemperature;
+	} else if (element.getAttribute('name') == 'description') {
+	    element.innerHTML = JSONObject.properties.periods[0].shortForecast;
+	} else if (element.getAttribute('name') == 'wind') {
+	    element.innerHTML = direction + " @ " + windSpeed;
+	} else if (element.getAttribute('name') == 'time') {
+	    element.innerHTML = new Date();
+	}
+    }
+    response.send(dom.serialize());
 });
 // post processing section
 // default processing section
