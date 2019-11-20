@@ -13,21 +13,27 @@ var WebSocket = require("ws");
 var spawn = require("child_process").spawn;
 var execSync = require("child_process").execSync;
 var exec = require("child_process").exec;
-var listOfAccounts = "";
-var balances = [];
-var databaseName = "everyday";
-var databaseStatus = true;
 // Read main html page - this will be parsed later
 let mainPageContents = fs.readFileSync("./index.html");
+const memwatch = require("memwatch-next");
+memwatch.on('leak', function (info) {
+    console.log("Memory leak detected:\n", info);
+});
 var app = express();
-var relay = [];
-var marketChanged = false;
+//var relay = []; // websocket connection info
 
 var https = require("https");
 
 var JSONObject = null;
+var updateInProgress = false;
 
 var updateJSONObject = function () {
+    if (updateInProgress) {
+	console.log("exiting update - update is in progress");
+	return;
+    }
+    updateInProgress = true;
+    console.log("Updating JSON object");
     let query = https.request({ protocol: "https:", hostname: "api.weather.gov", path: "/gridpoints/FWD/90,117/forecast/hourly", port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com", "Accept" : "application/geo+json"}}, function (result) {
 	let bodySegments = [];
 	result.on("data", function (data) {
@@ -43,15 +49,25 @@ var updateJSONObject = function () {
 	    //console.log("Document portion:", replyDocument.body.textContent);
 	    let replyJSON = JSON.parse(replyDocument.body.textContent); // make JSON object
 	    JSONObject = replyJSON;
+            for (let forecastObject of JSONObject.properties.periods) {
+	      let rowTS = new Date(forecastObject.startTime);
+		forecastObject.innerHTML = dayArray[rowTS.getDay()] + ((rowTS.getHours() < 10) ? "0":"") + rowTS.getHours() + ":" + ((rowTS.getMinutes() < 10) ? "0" : "") + rowTS.getMinutes();
+	    };
 	    lastUpdateTime = new Date();
+	    updateInProgress = false;
+	    console.log("Successful update of JSON object");
 	});
 	result.on("error", function(){
 	    console.log("query error on result path");
+	    updateInProgress = false;
+	    console.log("Update of JSON object failed");
 	});
 
     });
     query.on("error", function(error) {
 	console.log("query error: " + error);
+	updateInProgress = false;
+	console.log("Update of JSON object failed");
     });
     query.end();    
 };
@@ -66,12 +82,15 @@ var debug = false;
 
 var firstTime = true;
 
+var dayArray = ["Sun ", "Mon ", "Tue ", "Wed ", "Thu ", "Fri ", "Sat "];
+
+var pattern = /[^:]+:\d\d/;
+
 process.env.TZ = 'US/Central';
 // check for changes 
 setInterval(function(){
     let delta = new Date() - lastUpdateTime;
     if (delta > ONE_INTERVAL) {
-	console.log("Updating JSON object");
 	updateJSONObject();
     }
 },1000);
@@ -93,10 +112,11 @@ app.get("/", function(request, response, next) {
 	if ((count % 6) == 0) {
 	    let tableRow = dom.window.document.createElement("tr");
 	    let tableCellDate = dom.window.document.createElement("td");
-	    tableCellDate.innerHTML = new Date(forecastObject.startTime);
+	    tableCellDate.innerHTML = forecastObject.innerHTML;
 	    tableRow.appendChild(tableCellDate);
 	    let tableCellTemp = dom.window.document.createElement("td");
 	    tableCellTemp.innerHTML = forecastObject.temperature;
+	    tableCellTemp.setAttribute('style', 'text-align:center');
 	    tableRow.appendChild(tableCellTemp);
 	    let tableCellWind = dom.window.document.createElement("td");
 	    tableCellWind.innerHTML = forecastObject.windSpeed;
@@ -121,7 +141,8 @@ app.get("/", function(request, response, next) {
 	} else if (element.getAttribute('name') == 'wind') {
 	    element.innerHTML = direction + " @ " + windSpeed;
 	} else if (element.getAttribute('name') == 'time') {
-	    element.innerHTML = new Date();
+	    let dateString = new Date().toString();
+	    element.innerHTML = pattern.exec(dateString)[0];
 	}
     }
     response.send(dom.serialize());
