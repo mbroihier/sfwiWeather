@@ -26,6 +26,14 @@ var https = require("https");
 
 var JSONObject = null;
 var updateInProgress = false;
+var temperatureRange = {};
+var dayArray = ["Sun ", "Mon ", "Tue ", "Wed ", "Thu ", "Fri ", "Sat "];
+
+for (let day of dayArray) {
+    for (let hour=0; hour < 24; hour++) {
+	temperatureRange[day + ((hour < 10)? "0":"") + hour + ":00"] = "";
+    };
+};
 
 var updateJSONObject = function () {
     if (updateInProgress) {
@@ -54,6 +62,43 @@ var updateJSONObject = function () {
 		forecastObject.innerHTML = dayArray[rowTS.getDay()] + ((rowTS.getHours() < 10) ? "0":"") + rowTS.getHours() + ":" + ((rowTS.getMinutes() < 10) ? "0" : "") + rowTS.getMinutes();
 	    };
 	    lastUpdateTime = new Date();
+	    let currentDay = dayArray[(new Date()).getDay()];
+            for (let index=0; index < JSONObject.properties.periods.length; index++ ) { // find min / max temperature for the day
+		if (JSONObject.properties.periods[index].innerHTML.includes(currentDay)) {
+		    console.log("Skipping", currentDay);;
+		} else {
+		    let lowTemp = null;
+		    let highTemp = null;
+		    let foundIndexLow = 0;
+		    let foundIndexHigh = 0;
+		    //console.log("Processing", JSONObject.properties.periods[index].innerHTML);
+		    for (let trIndex=index; (trIndex < index+24) && (trIndex < JSONObject.properties.periods.length); trIndex++) {
+			//console.log("Periods index",trIndex);
+			let temperatureOfInterest = parseInt(JSONObject.properties.periods[trIndex].temperature);
+			if (lowTemp == null) {
+			    lowTemp = temperatureOfInterest;
+			} else if (lowTemp > temperatureOfInterest) {
+			    lowTemp = temperatureOfInterest;
+			    foundIndexLow = trIndex;
+			};
+			if (highTemp == null) {
+			    highTemp = temperatureOfInterest;
+			} else if (highTemp < temperatureOfInterest) {
+			    highTemp = temperatureOfInterest;
+			    foundIndexHigh = trIndex
+			};
+		    };
+		    for (let trIndex=index; (trIndex < index+24) && (trIndex < JSONObject.properties.periods.length); trIndex++) {
+			if (foundIndexLow > foundIndexHigh) {
+		            temperatureRange[JSONObject.properties.periods[trIndex].innerHTML] = "expected low " + lowTemp + " expected high " + highTemp + " cooling trend";
+			} else {
+		            temperatureRange[JSONObject.properties.periods[trIndex].innerHTML] = "expected low " + lowTemp + " expected high " + highTemp;
+			};
+		    };
+		    index = index + 23; // advance to next day
+		};
+            }
+            console.log(temperatureRange);
 	    updateInProgress = false;
 	    console.log("Successful update of JSON object");
 	});
@@ -81,8 +126,6 @@ var ONE_INTERVAL = 600000;
 var debug = false;
 
 var firstTime = true;
-
-var dayArray = ["Sun ", "Mon ", "Tue ", "Wed ", "Thu ", "Fri ", "Sat "];
 
 var pattern = /[^:]+:\d\d/;
 
@@ -143,6 +186,8 @@ app.get("/", function(request, response, next) {
 	} else if (element.getAttribute('name') == 'time') {
 	    let dateString = new Date().toString();
 	    element.innerHTML = pattern.exec(dateString)[0];
+	} else if (element.getAttribute('name') == 'range') {
+	    element.innerHTML = temperatureRange[dayArray[(new Date()).getDay()]+"00:00"];
 	}
     }
     response.send(dom.serialize());

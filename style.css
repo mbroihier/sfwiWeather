@@ -13,6 +13,21 @@ p {
     text-align: center;
 }
 
+.radar {
+    position:absolute;
+    top: 100px;
+    left: 175px;
+    opacity: 1.0;
+}
+
+.radarOverlay {
+    position:absolute;
+    top: 100px;
+    left: 175px;
+    opacity: 1.0;
+}
+		 
+
 iframe {
     margin-left: 50px;
 }

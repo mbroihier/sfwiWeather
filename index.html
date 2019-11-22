@@ -6,22 +6,38 @@
     <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
-    <h1> Local Weather </h1>
-    <p name="time"></p>
-    <p name="description"></p>
-    <p name="temperature"></p>
-    <p name="wind"></p>
-    <h2> Forecast </h2>
-    <table id="forecastTable">
+    <div style="position:relative;height:650px">
+      <h1> Local Weather </h1>
+      <img class="radar" src="https://radar.weather.gov/ridge/Overlays/Topo/Short/FWS_Topo_Short.jpg">
+      <img class="radarOverlay" src="https://radar.weather.gov/ridge/Overlays/County/Short/FWS_County_Short.gif">
+      <img class="radarOverlay" src="https://radar.weather.gov/ridge/Overlays/Cities/Short/FWS_City_1M_Short.gif">
+      <img class="radarOverlay" src="https://radar.weather.gov/ridge/RadarImg/NCR/FWS_NCR_0.gif">
+      <img class="radarOverlay" src="https://radar.weather.gov/ridge/Overlays/Highways/Short/FWS_Highways_Short.gif">
+    </div>
+    <div style="position:relative">
+      <p name="time">time</p>
+      <p name="description">description</p>
+      <p name="temperature">temp</p>
+      <p name="wind">wind</p>
+      <p name="range">hilo</p>
+      <h2> Forecast </h2>
+      <table id="forecastTable">
       <tr>
 	<th> Date </th>
 	<th> Temp </th>
 	<th> Wind </th>
 	<th> Description </th>
       </tr>
-    </table>
-    <h1> Radar </h1>
-    <iframe src="https://radar.weather.gov/radar.php?rid=fws&product=NOR&overlay=11101111&loop=no" name="radar" allowTransparency="true" scrolling="yes" frameborder="10" width="840px" height="1000px">
-    </iframe>
+      </table>
+    </div>
+    <h2>Links</h2>
+    <ul>
+      <li>
+        <a href="https://www.wfaa.com/texas-radar">www.wfaa.com</a>
+      </li>
+      <li>
+	<a href="https://www.weather.gov">www.weather.gov</a>
+      </li>
+    </ul>
 </body>
 </html>
