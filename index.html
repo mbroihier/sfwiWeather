@@ -1,18 +1,25 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="google" content="notranslate">
     <title> Local Weather Server </title>
     <link rel="stylesheet" href="style.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.time.min.js"></script>
+    <script src="plot_data.js"></script>
+    <script src="script.js"></script>
 </head>
 <body>
-    <div style="position:relative;height:650px">
+    <div id="radar" style="position:relative;height:650px">
       <h1> Local Weather </h1>
       <img class="radar" src="https://radar.weather.gov/ridge/Overlays/Topo/Short/FWS_Topo_Short.jpg">
       <img class="radarOverlay" src="https://radar.weather.gov/ridge/Overlays/County/Short/FWS_County_Short.gif">
       <img class="radarOverlay" src="https://radar.weather.gov/ridge/Overlays/Cities/Short/FWS_City_1M_Short.gif">
-      <img class="radarOverlay" src="https://radar.weather.gov/ridge/RadarImg/NCR/FWS_NCR_0.gif">
       <img class="radarOverlay" src="https://radar.weather.gov/ridge/Overlays/Highways/Short/FWS_Highways_Short.gif">
+    </div>
+    <div id="placeholder" style="width:800px;height:300px;margin-left:75px;padding:60px">
     </div>
     <div style="position:relative">
       <p name="time">time</p>
