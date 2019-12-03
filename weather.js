@@ -15,7 +15,7 @@ var spawn = require("child_process").spawn;
 var execSync = require("child_process").execSync;
 var exec = require("child_process").exec;
 // Read main html page - this will be parsed later
-var mainPageContents = fs.readFileSync("./index.html");
+var mainPageContents = fs.readFileSync("./indexX.html");
 const memwatch = require("memwatch-next");
 memwatch.on('leak', function (info) {
     console.log(new Date());
@@ -181,6 +181,8 @@ var updateJSONObject = function () {
 
 var mainPageDOM = null;
 var next12Hours = {};
+var lastRecordedHour = 0;
+var historicalTemp = [];
 
 var updateHTML = function () {
     console.log("Updating HTML");
@@ -192,8 +194,7 @@ var updateHTML = function () {
     let count = 0;
     let tempPlotData ='var reviver = function(name, value) { if (name === \'0\') { value = new Date(value); } return value;}; var collectedData = JSON.parse(\'{ "temperature" : ';
     for (let forecastObject of JSONObject.properties.periods) {
-//	if ((count % 6) == 0) {
-	if ((count < 12) || ((count % 6) == 0)) {
+	if ((count % 6) == 0) {
 	    let tableRow = dom.window.document.createElement("tr");
 	    let tableCellDate = dom.window.document.createElement("td");
 	    tableCellDate.innerHTML = forecastObject.innerHTML;
@@ -216,10 +217,40 @@ var updateHTML = function () {
 	    } else {
 		tempPlotData += ",[";
 	    }
-	    tempPlotData += (new Date(forecastObject.startTime)).getTime() + ',';
+            let startTime = (new Date(forecastObject.startTime)).getTime();
+	    tempPlotData += startTime + ',';
 	    tempPlotData += forecastObject.temperature + ']';
+            if (count === 0) {
+	        tempPlotData += ",[" +startTime + ','; // add an extra start point - plot weirdness
+	        tempPlotData += forecastObject.temperature + ']';
+                if (startTime != lastRecordedHour) {
+                    if (lastRecordedHour === 0 ) { //first time
+                        for (let lRHIndex = 5; lRHIndex >= 0; lRHIndex -= 1) {
+                            historicalTemp.push([startTime - lRHIndex*3600000, forecastObject.temperature]);
+                        }
+                    } else {
+                        historicalTemp.push([startTime, forecastObject.temperature]);
+                    }
+                    lastRecordedHour = startTime;
+                }
+                if (historicalTemp.length > 6) {
+                    historicalTemp.shift();
+                }
+                console.log(historicalTemp);
+            }
 	};
-	count = count + 1;
+	count += 1;;
+    }
+    tempPlotData += "], \"oldTemperature\": ";
+    count = 0;
+    for (let oldSample of historicalTemp) {
+        if (count == 0) {
+	    tempPlotData += "[[";
+	} else {
+	    tempPlotData += ",[";
+	}
+        tempPlotData += oldSample[0] + "," + oldSample[1] + "]";
+        count += 1;
     }
     tempPlotData += "]}',reviver);";
     console.log (tempPlotData);
@@ -318,7 +349,7 @@ app.post("*", function(request, response, next) {
     next();
   });
 app.use(express.static("./"));
-var ws = new WebSocketServer({server: app.listen(process.env.PORT || 3000)});
+var ws = new WebSocketServer({server: app.listen(process.env.PORT || 3030)});
 /* The following section is only needed if the client connection uses a web socket
 ws.on("connection", function(connection) {
     relay.push(connection); // store for communication

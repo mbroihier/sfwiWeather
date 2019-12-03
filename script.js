@@ -8,7 +8,7 @@ window.onload = function () {
             xaxis: {
                 show: true,
                 mode: "time",
-                timeformat: "%a %I%P",
+                timeformat: "%a %I%p",
                 minTickSize: [3, "hour"],
                 font: {
                     size: 20,
