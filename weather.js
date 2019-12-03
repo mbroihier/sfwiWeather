@@ -1,7 +1,8 @@
 // weather display server - displays current local weather information
 // Setup all required packages
-// Although the next line refers to jslint, it is altering jshint behavior 
-/*jslint node: true */
+// Although the next line refers to jslint, it is altering jshint behavior
+/*jslint esversion:6 */
+/*jslint node:true, maxerr:50  */
 'use strict';
 process.env.TZ = 'US/Central';
 var express = require("express");
@@ -36,8 +37,8 @@ var radarImages = [];
 for (let day of dayArray) {
     for (let hour=0; hour < 24; hour++) {
 	temperatureRange[day + ((hour < 10)? "0":"") + hour + ":00"] = "";
-    };
-};
+    }
+}
 
 var updateJSONObject = function () {
     if (updateInProgress || radarUpdateInProgress) {
@@ -70,7 +71,7 @@ var updateJSONObject = function () {
 		for (let forecastObject of JSONObject.properties.periods) {
 		    let rowTS = new Date(forecastObject.startTime);
 		    forecastObject.innerHTML = dayArray[rowTS.getDay()] + ((rowTS.getHours() < 10) ? "0":"") + rowTS.getHours() + ":" + ((rowTS.getMinutes() < 10) ? "0" : "") + rowTS.getMinutes();
-		};
+		}
 		lastUpdateTime = new Date();
 		let currentDay = dayArray[(new Date()).getDay()];
 		for (let index=0; index < JSONObject.properties.periods.length; index++ ) { // find min / max temperature for the day
@@ -90,23 +91,23 @@ var updateJSONObject = function () {
 			    } else if (lowTemp > temperatureOfInterest) {
 				lowTemp = temperatureOfInterest;
 				foundIndexLow = trIndex;
-			    };
+			    }
 			    if (highTemp == null) {
 				highTemp = temperatureOfInterest;
 			    } else if (highTemp < temperatureOfInterest) {
 				highTemp = temperatureOfInterest;
-				foundIndexHigh = trIndex
-			    };
-			};
+				foundIndexHigh = trIndex;
+			    }
+			}
 			for (let trIndex=index; (trIndex < index+24) && (trIndex < JSONObject.properties.periods.length); trIndex++) {
 			    if (foundIndexLow > foundIndexHigh) {
 				temperatureRange[JSONObject.properties.periods[trIndex].innerHTML] = "" + highTemp + "\xB0/" + lowTemp + "\xB0";
 			    } else {
 				temperatureRange[JSONObject.properties.periods[trIndex].innerHTML] = "" + lowTemp + "\xB0/" + highTemp + "\xB0";
-			    };
-			};
+			    }
+			}
 			index = index + 23; // advance to next day
-		    };
+		    }
 		}
 		//console.log(temperatureRange);
 		updateInProgress = false;
@@ -238,8 +239,8 @@ var updateHTML = function () {
                 }
                 console.log(historicalTemp);
             }
-	};
-	count += 1;;
+	}
+	count += 1;
     }
     tempPlotData += "], \"oldTemperature\": ";
     count = 0;
@@ -323,7 +324,7 @@ setInterval(function(){
 	if (buildHTML) {
 	    updateHTML();
 	}
-    };
+    }
 },1000);
 // if the express server is contacted, look at the request and build a response or
 // forward the request to the standard server behavior.
