@@ -349,7 +349,7 @@ app.post("*", function(request, response, next) {
     next();
   });
 app.use(express.static("./"));
-var ws = new WebSocketServer({server: app.listen(process.env.PORT || 3030)});
+var ws = new WebSocketServer({server: app.listen(process.env.PORT || 3000)});
 /* The following section is only needed if the client connection uses a web socket
 ws.on("connection", function(connection) {
     relay.push(connection); // store for communication
