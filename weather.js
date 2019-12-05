@@ -16,7 +16,7 @@ var spawn = require("child_process").spawn;
 var execSync = require("child_process").execSync;
 var exec = require("child_process").exec;
 // Read main html page - this will be parsed later
-var mainPageContents = fs.readFileSync("./indexX.html");
+var mainPageContents = fs.readFileSync("./index.html");
 const memwatch = require("memwatch-next");
 memwatch.on('leak', function (info) {
     console.log(new Date());
