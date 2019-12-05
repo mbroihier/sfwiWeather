@@ -5,6 +5,7 @@
 /*jslint node:true, maxerr:50  */
 'use strict';
 process.env.TZ = 'US/Central';
+var config = require("./config.js");
 var express = require("express");
 var bodyParser = require("body-parser");
 var fs = require("fs");
@@ -47,8 +48,8 @@ var updateJSONObject = function () {
     }
     updateInProgress = true;
     radarUpdateInProgress = true;
-    console.log("Updating JSON object");
-    let query = https.request({ protocol: "https:", hostname: "api.weather.gov", path: "/gridpoints/FWD/90,117/forecast/hourly", port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com", "Accept" : "application/geo+json"}}, function (result) {
+    console.log("Updating JSON object using ", config.forecastURL, config.forecastPath);
+    let query = https.request({ protocol: "https:", hostname: config.forecastURL, path: config.forecastPath, port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com", "Accept" : "application/geo+json"}}, function (result) {
 	let bodySegments = [];
 	result.on("data", function (data) {
 	    //console.log("Got some data from api");
@@ -139,7 +140,7 @@ var updateJSONObject = function () {
 	console.log("Update of JSON object failed");
     });
     query.end();
-    let ftpClient = https.request({ protocol: "https:", hostname: "radar.weather.gov", path: "/RadarImg/NCR/FWS/", port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com"}}, function (result) {
+    let ftpClient = https.request({ protocol: "https:", hostname: "radar.weather.gov", path: "/RadarImg/NCR/" + config.radarStation + "/", port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com"}}, function (result) {
 	let bodySegments = [];
 	result.on("data", function (data) {
 	    //console.log("Got some data from api");
@@ -281,7 +282,7 @@ var updateHTML = function () {
 	let radarImage = dom.window.document.createElement("img");
 	radarImage.setAttribute("id", "frame"+count);
 	radarImage.setAttribute("class", "radarOverlay");
-	radarImage.setAttribute("src", "https://radar.weather.gov/ridge/RadarImg/NCR/FWS/"+image);
+	radarImage.setAttribute("src", "https://radar.weather.gov/ridge/RadarImg/NCR/" + config.radarStation + "/"+image);
 	insertionPoint.appendChild(radarImage);
 	count++;
     }

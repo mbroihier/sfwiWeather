@@ -1,0 +1,21 @@
+#!/bin/bash
+FC=`curl -X GET "https://api.weather.gov/points/$1,$2" -H "accept:application/geo+json" 2>/dev/null | grep hourly | awk 'match($0, /https:[^\"]+/){print substr($0, RSTART+23, RLENGTH-23)}'`
+RA=`curl -X GET "https://api.weather.gov/points/$1,$2" -H "accept:application/geo+json" 2>/dev/null | grep radar | awk 'match($0, /: \"..../){print substr($0, RSTART+4, 3)}'`
+if [ "$FC" == "" ]; then
+    echo "Could not determine forecast information URL"
+    exit 1
+fi
+if [ "$RA" == "" ]; then
+    echo "Could not determine radar station"
+    exit 1
+fi
+echo "var config = {" > config.js
+echo "     forecastURL  : \"api.weather.gov\"," >> config.js
+echo "     forecastPath : \"$FC\"," >> config.js
+echo "     radarStation : \"$RA\"" >> config.js
+echo "};" >> config.js
+echo "module.exports=config;" >> config.js
+sed s/XXX/$RA/ indexTemplate.html > index.html
+echo "config.js succussfully built for location $1, $2"
+
+
