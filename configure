@@ -9,6 +9,11 @@ if [ "$RA" == "" ]; then
     echo "Could not determine radar station"
     exit 1
 fi
+if [ "$3" == "" ]; then
+    LO="Local"
+else
+    LO=$3
+fi
 echo "var config = {" > config.js
 echo "     forecastURL  : \"api.weather.gov\"," >> config.js
 echo "     forecastPath : \"$FC\"," >> config.js
@@ -16,6 +21,7 @@ echo "     radarStation : \"$RA\"" >> config.js
 echo "};" >> config.js
 echo "module.exports=config;" >> config.js
 sed s/XXX/$RA/ indexTemplate.html > index.html
+sed s/Local/$LO/ -i index.html
 echo "config.js succussfully built for location $1, $2"
 
 
