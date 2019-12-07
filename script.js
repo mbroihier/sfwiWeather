@@ -47,10 +47,12 @@ setInterval(function () {
         element;
     for (index = 0; index < 10; index += 1) {
         element = document.getElementById("frame" + index);
-        if (index === count) {
-            element.setAttribute('style', 'display: block');
-        } else {
-            element.setAttribute('style', 'display: none');
+        if (element != null) {
+            if (index === count) {
+                element.setAttribute('style', 'display: block');
+            } else {
+                element.setAttribute('style', 'display: none');
+            }
         }
     }
     count += 1;

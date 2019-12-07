@@ -156,10 +156,12 @@ var updateJSONObject = function () {
 	    for (let td of tds) {
 		let anchors = td.getElementsByTagName("a");
 		if (anchors.length > 0) {
-		    radarImages.push(anchors[0].innerHTML);
-		    if (radarImages.length > 10) {
-			radarImages.shift();
-		    }
+                    if (! anchors[0].innerHTML.includes("Parent") ) {
+		        radarImages.push(anchors[0].innerHTML);
+		        if (radarImages.length > 10) {
+			    radarImages.shift();
+		        }
+                    }
 		}
 	    }
 	    radarUpdateInProgress = false;
