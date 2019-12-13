@@ -1,0 +1,3 @@
+#!/bin/bash
+cd /home/pi/sfwiWeather
+node weather.js >/dev/null 2>&1

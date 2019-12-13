@@ -1,0 +1,14 @@
+[Unit]
+Description=SFWI Weather service
+After=multi-user.target
+
+[Service]
+User=pi
+Group=pi
+ExecStart=/home/pi/sfwiWeather/sfwiWeatherWrapper
+Restart=always
+RestartSec=10
+
+[Install]
+Alias=sfwiWeather.service
+WantedBy=default.target
