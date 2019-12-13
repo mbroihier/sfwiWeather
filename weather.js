@@ -5,6 +5,7 @@
 /*jslint node:true, maxerr:50  */
 'use strict';
 process.env.TZ = 'US/Central';
+var config = require("./config.js");
 var express = require("express");
 var bodyParser = require("body-parser");
 var fs = require("fs");
@@ -47,8 +48,8 @@ var updateJSONObject = function () {
     }
     updateInProgress = true;
     radarUpdateInProgress = true;
-    console.log("Updating JSON object");
-    let query = https.request({ protocol: "https:", hostname: "api.weather.gov", path: "/gridpoints/FWD/90,117/forecast/hourly", port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com", "Accept" : "application/geo+json"}}, function (result) {
+    console.log("Updating JSON object using ", config.forecastURL, config.forecastPath);
+    let query = https.request({ protocol: "https:", hostname: config.forecastURL, path: config.forecastPath, port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com", "Accept" : "application/geo+json"}}, function (result) {
 	let bodySegments = [];
 	result.on("data", function (data) {
 	    //console.log("Got some data from api");
@@ -139,7 +140,7 @@ var updateJSONObject = function () {
 	console.log("Update of JSON object failed");
     });
     query.end();
-    let ftpClient = https.request({ protocol: "https:", hostname: "radar.weather.gov", path: "/RadarImg/NCR/FWS/", port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com"}}, function (result) {
+    let ftpClient = https.request({ protocol: "https:", hostname: "radar.weather.gov", path: "/RadarImg/NCR/" + config.radarStation + "/", port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com"}}, function (result) {
 	let bodySegments = [];
 	result.on("data", function (data) {
 	    //console.log("Got some data from api");
@@ -196,9 +197,42 @@ var updateHTML = function () {
     let insertionPoint = dom.window.document.querySelector("#forecastTable");
     let count = 0;
     let tempPlotData ='var reviver = function(name, value) { if (name === \'0\') { value = new Date(value); } return value;}; var collectedData = JSON.parse(\'{ "temperature" : ';
+    let currentDay = dayArray[(new Date()).getDay()];
     for (let forecastObject of JSONObject.properties.periods) {
-	if ((count % 6) == 0) {
+	if ((count < 24) && forecastObject.innerHTML.includes(currentDay)) {
 	    let tableRow = dom.window.document.createElement("tr");
+            if ((count % 2) == 0) {
+	        tableRow.setAttribute('style', 'display:show');
+            } else {
+	        tableRow.setAttribute('style', 'display:none');
+                tableRow.setAttribute('class', 'hide');
+            }
+            let tableCellDate = dom.window.document.createElement("td");
+	    tableCellDate.innerHTML = forecastObject.innerHTML;
+	    tableRow.appendChild(tableCellDate);
+	    let tableCellTemp = dom.window.document.createElement("td");
+	    tableCellTemp.innerHTML = forecastObject.temperature;
+	    tableCellTemp.setAttribute('style', 'text-align:center');
+	    tableRow.appendChild(tableCellTemp);
+	    let tableCellWind = dom.window.document.createElement("td");
+	    tableCellWind.innerHTML = forecastObject.windSpeed;
+	    tableRow.appendChild(tableCellWind);
+	    let tableCellDesc = dom.window.document.createElement("td");
+	    tableCellDesc.innerHTML = forecastObject.shortForecast;
+	    tableRow.appendChild(tableCellDesc);
+	    insertionPoint.appendChild(tableRow);
+	} else {
+	    let tableRow = dom.window.document.createElement("tr");
+	    if ( forecastObject.innerHTML.includes('10:00') ||
+                 forecastObject.innerHTML.includes('12:00') ||
+                 forecastObject.innerHTML.includes('14:00') ||
+                 forecastObject.innerHTML.includes('16:00') ||
+                 forecastObject.innerHTML.includes('18:00') ) {
+		tableRow.setAttribute('style', 'display:show');
+	    } else {
+                tableRow.setAttribute('style', 'display:none');
+                tableRow.setAttribute('class', 'hide');
+	    }		
 	    let tableCellDate = dom.window.document.createElement("td");
 	    tableCellDate.innerHTML = forecastObject.innerHTML;
 	    tableRow.appendChild(tableCellDate);
@@ -214,6 +248,7 @@ var updateHTML = function () {
 	    tableRow.appendChild(tableCellDesc);
 	    insertionPoint.appendChild(tableRow);
 	}
+
 	if (count < 24) {
 	    if (count == 0) {
 		tempPlotData += "[[";
@@ -283,7 +318,7 @@ var updateHTML = function () {
 	let radarImage = dom.window.document.createElement("img");
 	radarImage.setAttribute("id", "frame"+count);
 	radarImage.setAttribute("class", "radarOverlay");
-	radarImage.setAttribute("src", "https://radar.weather.gov/ridge/RadarImg/NCR/FWS/"+image);
+	radarImage.setAttribute("src", "https://radar.weather.gov/ridge/RadarImg/NCR/" + config.radarStation + "/"+image);
 	insertionPoint.appendChild(radarImage);
 	count++;
     }

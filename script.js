@@ -38,7 +38,29 @@ window.onload = function () {
     }
     // plot measurements
     $.plot($("#placeholder"), arrayOfObjects, options);
+
+    $("#box").click(function() {
+        if (this.checked) {
+            for (let element of $("tr")) {
+                if (element.hasAttribute('class')) {
+                    if (($(element).attr('class') == 'hide')) {
+                        $(element).attr('style', 'display:show');
+                    }
+                }
+            }
+        } else {
+            for (let element of $("tr")) {
+                if (element.hasAttribute('class')) {
+                    if (($(element).attr('class') == 'hide')) {
+                        $(element).attr('style', 'display:none');
+                    }
+                }
+            }
+        }            
+
+    });
 };
+
 
 
 var count = 0;
