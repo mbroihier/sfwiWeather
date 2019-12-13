@@ -195,9 +195,42 @@ var updateHTML = function () {
     let insertionPoint = dom.window.document.querySelector("#forecastTable");
     let count = 0;
     let tempPlotData ='var reviver = function(name, value) { if (name === \'0\') { value = new Date(value); } return value;}; var collectedData = JSON.parse(\'{ "temperature" : ';
+    let currentDay = dayArray[(new Date()).getDay()];
     for (let forecastObject of JSONObject.properties.periods) {
-	if ((count % 6) == 0) {
+	if ((count < 24) && forecastObject.innerHTML.includes(currentDay)) {
 	    let tableRow = dom.window.document.createElement("tr");
+            if ((count % 2) == 0) {
+	        tableRow.setAttribute('style', 'display:show');
+            } else {
+	        tableRow.setAttribute('style', 'display:none');
+                tableRow.setAttribute('class', 'hide');
+            }
+            let tableCellDate = dom.window.document.createElement("td");
+	    tableCellDate.innerHTML = forecastObject.innerHTML;
+	    tableRow.appendChild(tableCellDate);
+	    let tableCellTemp = dom.window.document.createElement("td");
+	    tableCellTemp.innerHTML = forecastObject.temperature;
+	    tableCellTemp.setAttribute('style', 'text-align:center');
+	    tableRow.appendChild(tableCellTemp);
+	    let tableCellWind = dom.window.document.createElement("td");
+	    tableCellWind.innerHTML = forecastObject.windSpeed;
+	    tableRow.appendChild(tableCellWind);
+	    let tableCellDesc = dom.window.document.createElement("td");
+	    tableCellDesc.innerHTML = forecastObject.shortForecast;
+	    tableRow.appendChild(tableCellDesc);
+	    insertionPoint.appendChild(tableRow);
+	} else {
+	    let tableRow = dom.window.document.createElement("tr");
+	    if ( forecastObject.innerHTML.includes('10:00') ||
+                 forecastObject.innerHTML.includes('12:00') ||
+                 forecastObject.innerHTML.includes('14:00') ||
+                 forecastObject.innerHTML.includes('16:00') ||
+                 forecastObject.innerHTML.includes('18:00') ) {
+		tableRow.setAttribute('style', 'display:show');
+	    } else {
+                tableRow.setAttribute('style', 'display:none');
+                tableRow.setAttribute('class', 'hide');
+	    }		
 	    let tableCellDate = dom.window.document.createElement("td");
 	    tableCellDate.innerHTML = forecastObject.innerHTML;
 	    tableRow.appendChild(tableCellDate);
@@ -213,6 +246,7 @@ var updateHTML = function () {
 	    tableRow.appendChild(tableCellDesc);
 	    insertionPoint.appendChild(tableRow);
 	}
+
 	if (count < 24) {
 	    if (count == 0) {
 		tempPlotData += "[[";

@@ -53,7 +53,8 @@ a {
 }
 
 body input,body label {
-    display: block;
+    font-weight: normal;
+    text-align: right;
 }
 
 table, td, tr, th {
