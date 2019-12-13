@@ -7,15 +7,9 @@
 process.env.TZ = 'US/Central';
 var config = require("./config.js");
 var express = require("express");
-var bodyParser = require("body-parser");
 var fs = require("fs");
 var jsdom = require("jsdom");
-var readLine = require("readline");
 var WebSocketServer = require("ws").Server;
-var WebSocket = require("ws");
-var spawn = require("child_process").spawn;
-var execSync = require("child_process").execSync;
-var exec = require("child_process").exec;
 // Read main html page - this will be parsed later
 var mainPageContents = fs.readFileSync("./index.html");
 const memwatch = require("memwatch-next");
@@ -322,18 +316,6 @@ var updateHTML = function () {
 	insertionPoint.appendChild(radarImage);
 	count++;
     }
-    //if (mainPageDOM) {
-	//console.log("mainPageDOM exists");
-	//console.log("Keys:", Object.keys(mainPageDOM.window));
-	//console.log(typeof mainPageDOM.window);
-	//for (let thing in mainPageDOM.window) {
-	    //console.log("marking for reclaim of memory:", thing);
-	    //delete mainPageDOM.window.thing;
-	//};
-    //};
-    //console.log(typeof dom);
-    //console.log(Object.keys(dom.window));
-    //console.log("Keys:", Object.keys(dom.window));
     mainPageDOM = dom;
     buildHTML = false;
     console.log("HTML ready");
@@ -344,7 +326,6 @@ var lastUpdateTime = null;
 // initialize global information
 
 var ONE_INTERVAL = 600000;
-//var ONE_INTERVAL = 60000;
 
 var debug = false;
 
@@ -388,27 +369,4 @@ app.post("*", function(request, response, next) {
   });
 app.use(express.static("./"));
 var ws = new WebSocketServer({server: app.listen(process.env.PORT || 3000)});
-/* The following section is only needed if the client connection uses a web socket
-ws.on("connection", function(connection) {
-    relay.push(connection); // store for communication
-    console.log("web socket connection made at server from HTML client page");
-    connection.send("connected");
-    connection.on("message", function (message) {
-        if (message === "exit") {
-          relay.splice(relay.indexOf(connection), 1);
-          connection.close();
-        }
-      });
-    connection.on("close", function(message) {
-        relay.splice(relay.indexOf(connection), 1);
-        connection.close();
-        console.log("closing a connection");
-      });
-    connection.on("error", function(message) {
-        relay.splice(relay.indexOf(connection), 1);
-        connection.close();
-        console.log("error on ws connection:"+message);
-      });
-});
-*/
 console.log("weather server is listening");

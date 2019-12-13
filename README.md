@@ -31,23 +31,3 @@ Assembly - Software:
   16) reboot with sudo shutdown -r now, the server should start when the PI comes back up
   17) To run by hand, disable/stop the service using sytemctl, and type node weather.js within the sfwiWeather directory.  Log information will be displayed to the console. 
   
-
-```
-cd tennisball
-make
-```
-
- 10)  sudo cp -p tennisball.service /lib/systemd/system/ 
- 11)  sudo systemctl enable tennisball
-
-
-Reboot:
-```
-sudo shutdown -r now
-
-```
-This will start the tennisball application.  When it starts, it will start measuring the distance to the closest object to the PING sensor.  When it detects something at a stable distnace, it will begin lighting an LED indicating that an object is at the "target" distance.  If objects are too far away, the LED will be off.  This will run until the PI is powered off.
-
-There are two versions: a C++ version and a python3 version.  The service runs the C++ version.  They python code is nice for quickly checking out ideas.
-
-[Wiring](tennisball.pdf)
