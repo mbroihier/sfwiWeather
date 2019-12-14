@@ -19,15 +19,16 @@ Assembly - Software:
   4)  Change the node name to sfwiWeather.
   5)  sudo apt-get update
   6)  sudo apt-get upgrade
-  7)  sudo apt-get nodejs
-  8)  sudo apt-get npm
-  9)  git clone https://github.com/mbroihier/sfwiWeather.git
-  10) cd sfwiWeather
-  11) npm install
-  12) ./configure lat lon name (where lat and lon are the latitude and longitude, which can have 4 significant digits but no trailing zeros, of your location of interest, and name is the name of the location)
-  13) The index.html file can be edited to add a favorite link to other weather information sites
-  14) sudo cp -p sfwiWeather.service /lib/systemd/system/
-  15) sudo systemctl enable sfwiWeather.service
-  16) reboot with sudo shutdown -r now, the server should start when the PI comes back up
-  17) To run by hand, disable/stop the service using sytemctl, and type node weather.js within the sfwiWeather directory.  Log information will be displayed to the console. 
+  7)  sudo apt-get install nodejs
+  8)  sudo apt-get install npm
+  9)  sudo apt-get install git
+  10)  git clone https://github.com/mbroihier/sfwiWeather.git
+  11) cd sfwiWeather
+  12) npm install
+  13) ./configure lat lon name (where lat and lon are the latitude and longitude, which can have 4 significant digits but no trailing zeros, of your location of interest, and name is the name of the location)
+  14) The index.html file can be edited to add a favorite link to other weather information sites
+  15) sudo cp -p sfwiWeather.service /lib/systemd/system/
+  16) sudo systemctl enable sfwiWeather.service
+  17) reboot with sudo shutdown -r now, the server should start when the PI comes back up
+  18) To run by hand, disable/stop the service using sytemctl, and type node weather.js within the sfwiWeather directory.  Log information will be displayed to the console. 
   

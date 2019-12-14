@@ -12,11 +12,6 @@ var jsdom = require("jsdom");
 var WebSocketServer = require("ws").Server;
 // Read main html page - this will be parsed later
 var mainPageContents = fs.readFileSync("./index.html");
-const memwatch = require("memwatch-next");
-memwatch.on('leak', function (info) {
-    console.log(new Date());
-    console.log("Memory leak detected:\n", info);
-});
 var app = express();
 
 var https = require("https");
