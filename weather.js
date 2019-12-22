@@ -53,7 +53,16 @@ var updateJSONObject = function () {
 	    //console.log("Document portion:", replyDocument.body.textContent);
 	    try {
 		let replyJSON = JSON.parse(replyDocument.body.textContent); // make JSON object
-		JSONObject = replyJSON;
+                if ("properties" in replyJSON) { // only update if there is information
+                    JSONObject = replyJSON;
+                } else {
+                    console.log("Error in forecast request - skip a period");
+                    console.log(replyJSON);
+	            lastUpdateTime = new Date();
+                    if (radarUpdateInProgress == false) {
+                        buildHTML = true;
+                    }
+                }
 	    } catch (err) {
 		console.log("Error while parsing weather data reply:", err);
 	    }
@@ -185,131 +194,133 @@ var updateHTML = function () {
     // fill in forecast table and estimate temperature at time of table generation
     let insertionPoint = dom.window.document.querySelector("#forecastTable");
     let count = 0;
-    let tempPlotData ='var reviver = function(name, value) { if (name === \'0\') { value = new Date(value); } return value;}; var collectedData = JSON.parse(\'{ "temperature" : ';
-    let currentDay = dayArray[(new Date()).getDay()];
-    for (let forecastObject of JSONObject.properties.periods) {
-	if ((count < 24) && forecastObject.innerHTML.includes(currentDay)) {
-	    let tableRow = dom.window.document.createElement("tr");
-            if ((count % 2) == 0) {
-	        tableRow.setAttribute('style', 'display:show');
-            } else {
-	        tableRow.setAttribute('style', 'display:none');
-                tableRow.setAttribute('class', 'hide');
-            }
-            let tableCellDate = dom.window.document.createElement("td");
-	    tableCellDate.innerHTML = forecastObject.innerHTML;
-	    tableRow.appendChild(tableCellDate);
-	    let tableCellTemp = dom.window.document.createElement("td");
-	    tableCellTemp.innerHTML = forecastObject.temperature;
-	    tableCellTemp.setAttribute('style', 'text-align:center');
-	    tableRow.appendChild(tableCellTemp);
-	    let tableCellWind = dom.window.document.createElement("td");
-	    tableCellWind.innerHTML = forecastObject.windSpeed;
-	    tableRow.appendChild(tableCellWind);
-	    let tableCellDesc = dom.window.document.createElement("td");
-	    tableCellDesc.innerHTML = forecastObject.shortForecast;
-	    tableRow.appendChild(tableCellDesc);
-	    insertionPoint.appendChild(tableRow);
-	} else {
-	    let tableRow = dom.window.document.createElement("tr");
-	    if ( forecastObject.innerHTML.includes('10:00') ||
-                 forecastObject.innerHTML.includes('12:00') ||
-                 forecastObject.innerHTML.includes('14:00') ||
-                 forecastObject.innerHTML.includes('16:00') ||
-                 forecastObject.innerHTML.includes('18:00') ) {
-		tableRow.setAttribute('style', 'display:show');
+    if (JSONObject != null && "properties" in JSONObject) {
+        let tempPlotData ='var reviver = function(name, value) { if (name === \'0\') { value = new Date(value); } return value;}; var collectedData = JSON.parse(\'{ "temperature" : ';
+        let currentDay = dayArray[(new Date()).getDay()];
+        for (let forecastObject of JSONObject.properties.periods) {
+	    if ((count < 24) && forecastObject.innerHTML.includes(currentDay)) {
+	        let tableRow = dom.window.document.createElement("tr");
+                if ((count % 2) == 0) {
+	            tableRow.setAttribute('style', 'display:show');
+                } else {
+	            tableRow.setAttribute('style', 'display:none');
+                    tableRow.setAttribute('class', 'hide');
+                }
+                let tableCellDate = dom.window.document.createElement("td");
+	        tableCellDate.innerHTML = forecastObject.innerHTML;
+	        tableRow.appendChild(tableCellDate);
+	        let tableCellTemp = dom.window.document.createElement("td");
+	        tableCellTemp.innerHTML = forecastObject.temperature;
+	        tableCellTemp.setAttribute('style', 'text-align:center');
+	        tableRow.appendChild(tableCellTemp);
+	        let tableCellWind = dom.window.document.createElement("td");
+	        tableCellWind.innerHTML = forecastObject.windSpeed;
+	        tableRow.appendChild(tableCellWind);
+	        let tableCellDesc = dom.window.document.createElement("td");
+	        tableCellDesc.innerHTML = forecastObject.shortForecast;
+	        tableRow.appendChild(tableCellDesc);
+	        insertionPoint.appendChild(tableRow);
 	    } else {
-                tableRow.setAttribute('style', 'display:none');
-                tableRow.setAttribute('class', 'hide');
-	    }		
-	    let tableCellDate = dom.window.document.createElement("td");
-	    tableCellDate.innerHTML = forecastObject.innerHTML;
-	    tableRow.appendChild(tableCellDate);
-	    let tableCellTemp = dom.window.document.createElement("td");
-	    tableCellTemp.innerHTML = forecastObject.temperature;
-	    tableCellTemp.setAttribute('style', 'text-align:center');
-	    tableRow.appendChild(tableCellTemp);
-	    let tableCellWind = dom.window.document.createElement("td");
-	    tableCellWind.innerHTML = forecastObject.windSpeed;
-	    tableRow.appendChild(tableCellWind);
-	    let tableCellDesc = dom.window.document.createElement("td");
-	    tableCellDesc.innerHTML = forecastObject.shortForecast;
-	    tableRow.appendChild(tableCellDesc);
-	    insertionPoint.appendChild(tableRow);
-	}
-
-	if (count < 24) {
-	    if (count == 0) {
-		tempPlotData += "[[";
-	    } else {
-		tempPlotData += ",[";
+	        let tableRow = dom.window.document.createElement("tr");
+	        if ( forecastObject.innerHTML.includes('10:00') ||
+                     forecastObject.innerHTML.includes('12:00') ||
+                     forecastObject.innerHTML.includes('14:00') ||
+                     forecastObject.innerHTML.includes('16:00') ||
+                     forecastObject.innerHTML.includes('18:00') ) {
+		    tableRow.setAttribute('style', 'display:show');
+	        } else {
+                    tableRow.setAttribute('style', 'display:none');
+                    tableRow.setAttribute('class', 'hide');
+	        }		
+	        let tableCellDate = dom.window.document.createElement("td");
+	        tableCellDate.innerHTML = forecastObject.innerHTML;
+	        tableRow.appendChild(tableCellDate);
+	        let tableCellTemp = dom.window.document.createElement("td");
+	        tableCellTemp.innerHTML = forecastObject.temperature;
+	        tableCellTemp.setAttribute('style', 'text-align:center');
+	        tableRow.appendChild(tableCellTemp);
+	        let tableCellWind = dom.window.document.createElement("td");
+	        tableCellWind.innerHTML = forecastObject.windSpeed;
+	        tableRow.appendChild(tableCellWind);
+	        let tableCellDesc = dom.window.document.createElement("td");
+	        tableCellDesc.innerHTML = forecastObject.shortForecast;
+	        tableRow.appendChild(tableCellDesc);
+	        insertionPoint.appendChild(tableRow);
 	    }
-            let startTime = (new Date(forecastObject.startTime)).getTime();
-	    tempPlotData += startTime + ',';
-	    tempPlotData += forecastObject.temperature + ']';
-            if (count === 0) {
-	        tempPlotData += ",[" +startTime + ','; // add an extra start point - plot weirdness
+
+	    if (count < 24) {
+	        if (count == 0) {
+		    tempPlotData += "[[";
+	        } else {
+		    tempPlotData += ",[";
+	        }
+                let startTime = (new Date(forecastObject.startTime)).getTime();
+	        tempPlotData += startTime + ',';
 	        tempPlotData += forecastObject.temperature + ']';
-                if (startTime != lastRecordedHour) {
-                    if (lastRecordedHour === 0 ) { //first time
-                        for (let lRHIndex = 5; lRHIndex >= 0; lRHIndex -= 1) {
-                            historicalTemp.push([startTime - lRHIndex*3600000, forecastObject.temperature]);
+                if (count === 0) {
+	            tempPlotData += ",[" +startTime + ','; // add an extra start point - plot weirdness
+	            tempPlotData += forecastObject.temperature + ']';
+                    if (startTime != lastRecordedHour) {
+                        if (lastRecordedHour === 0 ) { //first time
+                            for (let lRHIndex = 5; lRHIndex >= 0; lRHIndex -= 1) {
+                                historicalTemp.push([startTime - lRHIndex*3600000, forecastObject.temperature]);
+                            }
+                        } else {
+                            historicalTemp.push([startTime, forecastObject.temperature]);
                         }
-                    } else {
-                        historicalTemp.push([startTime, forecastObject.temperature]);
+                        lastRecordedHour = startTime;
                     }
-                    lastRecordedHour = startTime;
+                    if (historicalTemp.length > 6) {
+                        historicalTemp.shift();
+                    }
+                    console.log(historicalTemp);
                 }
-                if (historicalTemp.length > 6) {
-                    historicalTemp.shift();
-                }
-                console.log(historicalTemp);
-            }
-	}
-	count += 1;
-    }
-    tempPlotData += "], \"oldTemperature\": ";
-    count = 0;
-    for (let oldSample of historicalTemp) {
-        if (count == 0) {
-	    tempPlotData += "[[";
-	} else {
-	    tempPlotData += ",[";
-	}
-        tempPlotData += oldSample[0] + "," + oldSample[1] + "]";
-        count += 1;
-    }
-    tempPlotData += "]}',reviver);";
-    console.log (tempPlotData);
-    fs.writeFileSync("./plot_data.js", tempPlotData);
-    let temperature = JSONObject.properties.periods[0].temperature;
-    let windSpeed = JSONObject.properties.periods[0].windSpeed;
-    let direction = JSONObject.properties.periods[0].windDirection;
-    let asciiTemperature = temperature + "\xB0F";
-    let elements = dom.window.document.querySelectorAll("p");
-    for (let element of elements) {
-	if (element.getAttribute('name') == 'temperature') {
-	    element.innerHTML = asciiTemperature;
-	} else if (element.getAttribute('name') == 'description') {
-	    element.innerHTML = JSONObject.properties.periods[0].shortForecast;
-	} else if (element.getAttribute('name') == 'wind') {
-	    element.innerHTML = direction + " @ " + windSpeed;
-	} else if (element.getAttribute('name') == 'time') {
-	    let dateString = new Date().toString();
-	    element.innerHTML = pattern.exec(dateString)[0];
-	} else if (element.getAttribute('name') == 'range') {
-	    element.innerHTML = temperatureRange[dayArray[(new Date()).getDay()]+"00:00"];
-	}
-    }
-    insertionPoint = dom.window.document.querySelector("#radar");
-    count = 0;
-    for (let image of radarImages) {
-	let radarImage = dom.window.document.createElement("img");
-	radarImage.setAttribute("id", "frame"+count);
-	radarImage.setAttribute("class", "radarOverlay");
-	radarImage.setAttribute("src", "https://radar.weather.gov/ridge/RadarImg/NCR/" + config.radarStation + "/"+image);
-	insertionPoint.appendChild(radarImage);
-	count++;
+	    }
+	    count += 1;
+        }
+        tempPlotData += "], \"oldTemperature\": ";
+        count = 0;
+        for (let oldSample of historicalTemp) {
+            if (count == 0) {
+	        tempPlotData += "[[";
+	    } else {
+	        tempPlotData += ",[";
+	    }
+            tempPlotData += oldSample[0] + "," + oldSample[1] + "]";
+            count += 1;
+        }
+        tempPlotData += "]}',reviver);";
+        console.log (tempPlotData);
+        fs.writeFileSync("./plot_data.js", tempPlotData);
+        let temperature = JSONObject.properties.periods[0].temperature;
+        let windSpeed = JSONObject.properties.periods[0].windSpeed;
+        let direction = JSONObject.properties.periods[0].windDirection;
+        let asciiTemperature = temperature + "\xB0F";
+        let elements = dom.window.document.querySelectorAll("p");
+        for (let element of elements) {
+	    if (element.getAttribute('name') == 'temperature') {
+	        element.innerHTML = asciiTemperature;
+	    } else if (element.getAttribute('name') == 'description') {
+	        element.innerHTML = JSONObject.properties.periods[0].shortForecast;
+	    } else if (element.getAttribute('name') == 'wind') {
+	        element.innerHTML = direction + " @ " + windSpeed;
+	    } else if (element.getAttribute('name') == 'time') {
+	        let dateString = new Date().toString();
+	        element.innerHTML = pattern.exec(dateString)[0];
+	    } else if (element.getAttribute('name') == 'range') {
+	        element.innerHTML = temperatureRange[dayArray[(new Date()).getDay()]+"00:00"];
+	    }
+        }
+        insertionPoint = dom.window.document.querySelector("#radar");
+        count = 0;
+        for (let image of radarImages) {
+	    let radarImage = dom.window.document.createElement("img");
+	    radarImage.setAttribute("id", "frame"+count);
+	    radarImage.setAttribute("class", "radarOverlay");
+	    radarImage.setAttribute("src", "https://radar.weather.gov/ridge/RadarImg/NCR/" + config.radarStation + "/"+image);
+	    insertionPoint.appendChild(radarImage);
+	    count++;
+        }
     }
     mainPageDOM = dom;
     buildHTML = false;
