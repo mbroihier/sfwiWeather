@@ -1,12 +1,17 @@
 #!/bin/bash
 FC=`curl -X GET "https://api.weather.gov/points/$1,$2" -H "accept:application/geo+json" 2>/dev/null | grep hourly | awk 'match($0, /https:[^\"]+/){print substr($0, RSTART+23, RLENGTH-23)}'`
 RA=`curl -X GET "https://api.weather.gov/points/$1,$2" -H "accept:application/geo+json" 2>/dev/null | grep radar | awk 'match($0, /: \"..../){print substr($0, RSTART+4, 3)}'`
+ZONE=`curl -X GET "https://api.weather.gov/points/$1,$2" -H "accept:application/geo+json" 2>/dev/null | grep county | awk 'match($0, /county\/....../){print substr($0, RSTART+7, 6)}'`
 if [ "$FC" == "" ]; then
     echo "Could not determine forecast information URL"
     exit 1
 fi
 if [ "$RA" == "" ]; then
     echo "Could not determine radar station"
+    exit 1
+fi
+if [ "$ZONE" == "" ]; then
+    echo "Could not determine alert zone"
     exit 1
 fi
 if [ "$3" == "" ]; then
@@ -17,7 +22,8 @@ fi
 echo "var config = {" > config.js
 echo "     forecastURL  : \"api.weather.gov\"," >> config.js
 echo "     forecastPath : \"$FC\"," >> config.js
-echo "     radarStation : \"$RA\"" >> config.js
+echo "     radarStation : \"$RA\"," >> config.js
+echo "     zone         : \"$ZONE\"" >> config.js
 echo "};" >> config.js
 echo "module.exports=config;" >> config.js
 sed s/XXX/$RA/ indexTemplate.html > index.html

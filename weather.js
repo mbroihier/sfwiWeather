@@ -17,12 +17,15 @@ var app = express();
 var https = require("https");
 
 var JSONObject = null;
+var AlertObject = null;
 var updateInProgress = false;
+var updateAlertInProgress = false;
 var radarUpdateInProgress = false;
 var buildHTML = false;
 var temperatureRange = {};
 var dayArray = ["Sun ", "Mon ", "Tue ", "Wed ", "Thu ", "Fri ", "Sat "];
 var radarImages = [];
+var headlines = [];
 
 for (let day of dayArray) {
     for (let hour=0; hour < 24; hour++) {
@@ -186,13 +189,80 @@ var next12Hours = {};
 var lastRecordedHour = 0;
 var historicalTemp = [];
 
+var updateAlertInformation = function () {
+    if (updateAlertInProgress) {
+        console.log("exiting alert update - update is in progress");
+        return;
+    }
+    updateAlertInProgress = true;
+    console.log("Updating alert information using ", config.forecastURL, config.zone);
+    let query = https.request({ protocol: "https:", hostname: config.forecastURL, path: "/alerts/active/zone/" + config.zone, port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com", "Accept" : "application/geo+json"}}, function (result) {
+	let bodySegments = [];
+	result.on("data", function (data) {
+	    //console.log("Got some data from api");
+	    bodySegments.push(data);
+	});
+
+	result.on("end", function () {
+	    let body = Buffer.concat(bodySegments);
+            let replyDOM = new jsdom.JSDOM(body);
+	    //console.log("Response from query:"+replyDOM.serialize());
+	    let replyDocument = replyDOM.window.document;
+	    //console.log("Document portion:", replyDocument.body.textContent);
+	    try {
+		let replyJSON = JSON.parse(replyDocument.body.textContent); // make JSON object
+                if ("features" in replyJSON) { // only update if there is information
+                    AlertObject = replyJSON;
+                } else {
+                    console.log("Error in alert request - skip a period");
+                    console.log(replyJSON);
+                }
+	    } catch (err) {
+		console.log("Error while parsing alert data reply:", err);
+	    }
+	    if (AlertObject != null && "features" in AlertObject) {
+                headlines = [];
+                
+		for (let feature of AlertObject.features) {
+                    headlines.push(feature.properties.headline);
+                }
+		updateAlertInProgress = false;
+		console.log("Successful update of alert information");
+                lastAlertUpdateTime = new Date();
+                buildHTML = true;
+	    } else {
+		updateAlertInProgress = false;
+		console.log("failed to update alert information");
+	    }
+	});
+	result.on("error", function(){
+	    console.log("alert query error on result path");
+	    updateAlertInProgress = false;
+	    console.log("Update of alert information failed");
+	});
+
+    });
+    query.on("error", function(error) {
+	console.log("query error: " + error);
+	updateAlertInProgress = false;
+	console.log("Update of alert information failed");
+    });
+    query.end();
+};
+
 var updateHTML = function () {
     console.log("Updating HTML");
     let dom = new jsdom.JSDOM(mainPageContents);
-    //let document = dom.window.document;
-    //console.log(JSONObject);
+    let insertionPoint = dom.window.document.querySelector("#alertTable");
+    for (let headline of headlines) {
+        let tableRow = dom.window.document.createElement("tr");
+        let tableCell = dom.window.document.createElement("td");
+	tableCell.innerHTML = headline;
+	tableRow.appendChild(tableCell);
+	insertionPoint.appendChild(tableRow);
+    }
     // fill in forecast table and estimate temperature at time of table generation
-    let insertionPoint = dom.window.document.querySelector("#forecastTable");
+    insertionPoint = dom.window.document.querySelector("#forecastTable");
     let count = 0;
     if (JSONObject != null && "properties" in JSONObject) {
         let tempPlotData ='var reviver = function(name, value) { if (name === \'0\') { value = new Date(value); } return value;}; var collectedData = JSON.parse(\'{ "temperature" : ';
@@ -328,10 +398,12 @@ var updateHTML = function () {
 };
 
 var lastUpdateTime = null;
+var lastAlertUpdateTime = null;
 
 // initialize global information
 
-var ONE_INTERVAL = 600000;
+var FORECAST_INTERVAL = 600000;
+var ALERT_INTERVAL    = 120000;
 
 var debug = false;
 
@@ -342,21 +414,26 @@ var pattern = /[^:]+:\d\d/;
 // check for changes 
 setInterval(function(){
     let delta = new Date() - lastUpdateTime;
-    if (delta > ONE_INTERVAL) {
+    let alertDelta = new Date() - lastAlertUpdateTime;
+    if (delta > FORECAST_INTERVAL) {
 	updateJSONObject();
-    } else {
-	if (buildHTML) {
-	    updateHTML();
-	}
+    }
+    if (alertDelta > ALERT_INTERVAL) {
+        updateAlertInformation();
+    }
+    if (buildHTML) {
+        updateHTML();
     }
 },1000);
 // if the express server is contacted, look at the request and build a response or
 // forward the request to the standard server behavior.
 app.get("/", function(request, response, next) {
+
     console.log("processing /index.html");
     console.log(request.url);
     console.log(request.method);
     // this is the main page so return main page built in updateHTML
+    //updateAlertInformation();
     response.send(mainPageDOM.serialize());
 });
 // post processing section
