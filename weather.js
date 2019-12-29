@@ -375,16 +375,16 @@ var updateHTML = function () {
         let asciiTemperature = temperature + "\xB0F";
         let elements = dom.window.document.querySelectorAll("p");
         for (let element of elements) {
-	    if (element.getAttribute('name') == 'temperature') {
+	    if (element.getAttribute('id') == 'temperature') {
 	        element.innerHTML = asciiTemperature;
-	    } else if (element.getAttribute('name') == 'description') {
+	    } else if (element.getAttribute('id') == 'description') {
 	        element.innerHTML = JSONObject.properties.periods[0].shortForecast;
-	    } else if (element.getAttribute('name') == 'wind') {
+	    } else if (element.getAttribute('id') == 'wind') {
 	        element.innerHTML = direction + " @ " + windSpeed;
-	    } else if (element.getAttribute('name') == 'time') {
+	    } else if (element.getAttribute('id') == 'time') {
 	        let dateString = new Date().toString();
 	        element.innerHTML = pattern.exec(dateString)[0];
-	    } else if (element.getAttribute('name') == 'range') {
+	    } else if (element.getAttribute('id') == 'range') {
 	        element.innerHTML = temperatureRange[dayArray[(new Date()).getDay()]+"00:00"];
 	    }
         }
@@ -393,6 +393,7 @@ var updateHTML = function () {
         for (let image of radarImages) {
 	    let radarImage = dom.window.document.createElement("img");
 	    radarImage.setAttribute("id", "frame"+count);
+	    radarImage.setAttribute("alt", "RadarImage");
 	    radarImage.setAttribute("class", "radarOverlay");
 	    radarImage.setAttribute("src", "https://radar.weather.gov/ridge/RadarImg/NCR/" + config.radarStation + "/"+image);
 	    insertionPoint.appendChild(radarImage);
