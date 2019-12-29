@@ -4,11 +4,11 @@
 /*jslint esversion:6 */
 /*jslint node:true, maxerr:50  */
 'use strict';
-process.env.TZ = 'US/Central';
 var config = require("./config.js");
 var express = require("express");
 var fs = require("fs");
 var jsdom = require("jsdom");
+process.env.TZ = config.timeZone;
 var WebSocketServer = require("ws").Server;
 // Read main html page - this will be parsed later
 var mainPageContents = fs.readFileSync("./index.html");
@@ -265,8 +265,9 @@ var updateHTML = function () {
     insertionPoint = dom.window.document.querySelector("#forecastTable");
     let count = 0;
     if (JSONObject != null && "properties" in JSONObject) {
-        let tempPlotData ='var reviver = function(name, value) { if (name === \'0\') { value = new Date(value); } return value;}; var collectedData = JSON.parse(\'{ "temperature" : ';
-        let currentDay = dayArray[(new Date()).getDay()];
+        let reference = new Date();
+        let tempPlotData ='var timeZoneOffset = ' + reference.getTimezoneOffset() + '; var reference = new Date(); var reviver = function(name, value) { if (name === \'0\') { value = new Date(value + (reference.getTimezoneOffset() - timeZoneOffset)*60000);} return value;}; var collectedData = JSON.parse(\'{ "temperature" : ';
+        let currentDay = dayArray[reference.getDay()];
         for (let forecastObject of JSONObject.properties.periods) {
 	    if ((count < 24) && forecastObject.innerHTML.includes(currentDay)) {
 	        let tableRow = dom.window.document.createElement("tr");
@@ -361,6 +362,12 @@ var updateHTML = function () {
         }
         tempPlotData += "]}',reviver);";
         console.log (tempPlotData);
+        if (historicalTemp[5][1] != JSONObject.properties.periods[0].temperature) {
+            // this sometimes happens when the forecasted temperature changes during the current hour
+            // update the entry so it doesn't look odd
+            historicalTemp[5][1] = JSONObject.properties.periods[0].temperature;
+            //console.log("****historical temp does not match current temp");
+        }
         fs.writeFileSync("./plot_data.js", tempPlotData);
         let temperature = JSONObject.properties.periods[0].temperature;
         let windSpeed = JSONObject.properties.periods[0].windSpeed;
@@ -428,12 +435,10 @@ setInterval(function(){
 // if the express server is contacted, look at the request and build a response or
 // forward the request to the standard server behavior.
 app.get("/", function(request, response, next) {
-
     console.log("processing /index.html");
     console.log(request.url);
     console.log(request.method);
     // this is the main page so return main page built in updateHTML
-    //updateAlertInformation();
     response.send(mainPageDOM.serialize());
 });
 // post processing section
