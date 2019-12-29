@@ -7,7 +7,7 @@ The instructions below are meant to produce a Raspberry PI "appliance", a dedica
 That said, this software doesn't have to be run on a raspberry PI nor does it have to be run as a service.  The application is written in JavaScript to be run with Node.js.  As long as you have a relatively current Node.js environment, you should be able to install the "package" and run the weather.js script that implements the server.  That is, it doesn't have to be on a Linux platform.
 
 Parts I used:
-  - Raspberry PI 0 W (or above - I use a zero)
+  - Raspberry PI 0 W (or above - I use a zero since this application requires so few resources)
   - 16 G SD card - 8 G would be sufficient and still overkill, more won't hurt
   - 110 to USB power suppy and adapter/cables to attach to the PI
   - Zebra Zero Black Ice GPIO case made by C4LABS
