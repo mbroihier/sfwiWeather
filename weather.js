@@ -14,6 +14,7 @@ var WebSocketServer = require("ws").Server;
 var mainPageContents = fs.readFileSync("./index.html");
 var app = express();
 
+var http = require("http");
 var https = require("https");
 
 var JSONObject = null;
@@ -41,7 +42,13 @@ var updateJSONObject = function () {
     updateInProgress = true;
     radarUpdateInProgress = true;
     console.log("Updating JSON object using ", config.forecastURL, config.forecastPath);
-    let query = https.request({ protocol: "https:", hostname: config.forecastURL, path: config.forecastPath, port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com", "Accept" : "application/geo+json"}}, function (result) {
+    let queryType = null;
+    if (config.protocol == "https:") {
+        queryType = https;
+    } else {
+        queryType = http;
+    }
+    let query = queryType.request({ protocol: config.protocol, hostname: config.forecastURL, path: config.forecastPath, port: config.port, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com", "Accept" : "application/geo+json"}}, function (result) {
 	let bodySegments = [];
 	result.on("data", function (data) {
 	    //console.log("Got some data from api");
@@ -196,7 +203,13 @@ var updateAlertInformation = function () {
     }
     updateAlertInProgress = true;
     console.log("Updating alert information using ", config.forecastURL, config.zone);
-    let query = https.request({ protocol: "https:", hostname: config.forecastURL, path: "/alerts/active/zone/" + config.zone, port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com", "Accept" : "application/geo+json"}}, function (result) {
+    let queryType = null;
+    if (config.protocol == "https:") {
+        queryType = https;
+    } else {
+        queryType = http;
+    }
+    let query = queryType.request({ protocol: config.protocol, hostname: config.forecastURL, path: "/alerts/active/zone/" + config.zone, port: config.port, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com", "Accept" : "application/geo+json"}}, function (result) {
 	let bodySegments = [];
 	result.on("data", function (data) {
 	    //console.log("Got some data from api");
@@ -441,6 +454,16 @@ app.get("/", function(request, response, next) {
     console.log(request.method);
     // this is the main page so return main page built in updateHTML
     response.send(mainPageDOM.serialize());
+});
+app.get("/testData", function(request, response, next) {
+    let testObject = { APIPlus: JSONObject,
+                       hiLow: temperatureRange,
+                       alertInfo: headlines };
+    console.log("processing /testData");
+    console.log(request.url);
+    console.log(request.method);
+    // this is a request to retrieve the test data for the server
+    response.send(JSON.stringify(testObject));
 });
 // post processing section
 // default processing section

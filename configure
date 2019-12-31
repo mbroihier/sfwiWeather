@@ -25,6 +25,8 @@ else
     LO=$3
 fi
 echo "var config = {" > config.js
+echo "     protocol     : \"https:\"," >> config.js
+echo "     port         : 443," >> config.js
 echo "     forecastURL  : \"api.weather.gov\"," >> config.js
 echo "     forecastPath : \"$FC\"," >> config.js
 echo "     radarStation : \"$RA\"," >> config.js
