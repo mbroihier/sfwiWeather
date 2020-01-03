@@ -33,10 +33,10 @@ var timePortal = function() {
     let returnTime = null;
     if (emulatorTime != null) {
         returnTime = new Date(emulatorTime);
+        console.log("timePortal: ", returnTime, dayArray[returnTime.getDay()], returnTime.getHours(), returnTime.getMinutes());
     } else {
         returnTime = new Date();
     }
-    console.log("timePortal: ", returnTime, dayArray[returnTime.getDay()], returnTime.getHours(), returnTime.getMinutes());
     return returnTime;
 };
 
