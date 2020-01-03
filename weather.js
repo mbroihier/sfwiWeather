@@ -383,6 +383,12 @@ var updateHTML = function () {
 	    }
 	    count += 1;
         }
+        if (historicalTemp[5][1] != JSONObject.properties.periods[0].temperature) {
+            // this sometimes happens when the forecasted temperature changes during the current hour
+            // update the entry so it doesn't look odd
+            historicalTemp[5][1] = JSONObject.properties.periods[0].temperature;
+            //console.log("****historical temp does not match current temp");
+        }
         tempPlotData += "], \"oldTemperature\": ";
         count = 0;
         for (let oldSample of historicalTemp) {
@@ -396,12 +402,6 @@ var updateHTML = function () {
         }
         tempPlotData += "]}',reviver);";
         console.log (tempPlotData);
-        if (historicalTemp[5][1] != JSONObject.properties.periods[0].temperature) {
-            // this sometimes happens when the forecasted temperature changes during the current hour
-            // update the entry so it doesn't look odd
-            historicalTemp[5][1] = JSONObject.properties.periods[0].temperature;
-            //console.log("****historical temp does not match current temp");
-        }
         fs.writeFileSync("./plot_data.js", tempPlotData);
         let tableIndex;
         for (tableIndex = 0; tableIndex < JSONObject.properties.periods.length; tableIndex += 1) {
