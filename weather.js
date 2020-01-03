@@ -106,8 +106,10 @@ var updateJSONObject = function () {
 			let highTemp = null;
 			let foundIndexLow = 0;
 			let foundIndexHigh = 0;
+                        let increment = 0;
+                        let workingDay = dayArray[(new Date(JSONObject.properties.periods[index].startTime)).getDay()];
 			//console.log("Processing", JSONObject.properties.periods[index].innerHTML);
-			for (let trIndex=index; (trIndex < index+24) && (trIndex < JSONObject.properties.periods.length); trIndex++) {
+			for (let trIndex=index; (trIndex < index+24) && (trIndex < JSONObject.properties.periods.length) && (JSONObject.properties.periods[trIndex].innerHTML.includes(workingDay)) && (! JSONObject.properties.periods[trIndex].innerHTML.includes(currentDay)); trIndex++) {
 			    //console.log("Periods index",trIndex);
 			    let temperatureOfInterest = parseInt(JSONObject.properties.periods[trIndex].temperature);
 			    if (lowTemp == null) {
@@ -123,14 +125,15 @@ var updateJSONObject = function () {
 				foundIndexHigh = trIndex;
 			    }
 			}
-			for (let trIndex=index; (trIndex < index+24) && (trIndex < JSONObject.properties.periods.length); trIndex++) {
+			for (let trIndex=index; (trIndex < index+24) && (trIndex < JSONObject.properties.periods.length) && (JSONObject.properties.periods[trIndex].innerHTML.includes(workingDay)) && (! JSONObject.properties.periods[trIndex].innerHTML.includes(currentDay)); trIndex++) {
+                            increment += 1;
 			    if (foundIndexLow > foundIndexHigh) {
 				temperatureRange[JSONObject.properties.periods[trIndex].innerHTML] = "" + highTemp + "\xB0/" + lowTemp + "\xB0";
 			    } else {
 				temperatureRange[JSONObject.properties.periods[trIndex].innerHTML] = "" + lowTemp + "\xB0/" + highTemp + "\xB0";
 			    }
 			}
-			index = index + 23; // advance to next day
+			index = index + increment - 1; // advance to next day
 		    }
 		}
 		//console.log(temperatureRange);
