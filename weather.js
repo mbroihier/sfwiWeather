@@ -27,6 +27,18 @@ var temperatureRange = {};
 var dayArray = ["Sun ", "Mon ", "Tue ", "Wed ", "Thu ", "Fri ", "Sat "];
 var radarImages = [];
 var headlines = [];
+var emulatorTime = null;
+
+var timePortal = function() {
+    let returnTime = null;
+    if (emulatorTime != null) {
+        returnTime = new Date(emulatorTime);
+    } else {
+        returnTime = new Date();
+    }
+    console.log("timePortal: ", returnTime, dayArray[returnTime.getDay()], returnTime.getHours(), returnTime.getMinutes());
+    return returnTime;
+};
 
 for (let day of dayArray) {
     for (let hour=0; hour < 24; hour++) {
@@ -65,10 +77,13 @@ var updateJSONObject = function () {
 		let replyJSON = JSON.parse(replyDocument.body.textContent); // make JSON object
                 if ("properties" in replyJSON) { // only update if there is information
                     JSONObject = replyJSON;
+                    if ("emulatorTime" in JSONObject) {
+                        emulatorTime = JSONObject["emulatorTime"];
+                    }
                 } else {
                     console.log("Error in forecast request - skip a period");
                     console.log(replyJSON);
-	            lastUpdateTime = new Date();
+	            lastUpdateTime = timePortal();
                     if (radarUpdateInProgress == false) {
                         buildHTML = true;
                     }
@@ -81,8 +96,8 @@ var updateJSONObject = function () {
 		    let rowTS = new Date(forecastObject.startTime);
 		    forecastObject.innerHTML = dayArray[rowTS.getDay()] + ((rowTS.getHours() < 10) ? "0":"") + rowTS.getHours() + ":" + ((rowTS.getMinutes() < 10) ? "0" : "") + rowTS.getMinutes();
 		}
-		lastUpdateTime = new Date();
-		let currentDay = dayArray[(new Date()).getDay()];
+		lastUpdateTime = timePortal();
+		let currentDay = dayArray[timePortal().getDay()];
 		for (let index=0; index < JSONObject.properties.periods.length; index++ ) { // find min / max temperature for the day
 		    if (JSONObject.properties.periods[index].innerHTML.includes(currentDay)) {
 			//console.log("Skipping", currentDay);;
@@ -146,6 +161,9 @@ var updateJSONObject = function () {
             buildHTML = true;
 	}
 	console.log("Update of JSON object failed");
+        if (emulatorTime != null) {
+            process.exit(1);
+        }
     });
     query.end();
     let ftpClient = https.request({ protocol: "https:", hostname: "radar.weather.gov", path: "/RadarImg/NCR/" + config.radarStation + "/", port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com"}}, function (result) {
@@ -241,7 +259,7 @@ var updateAlertInformation = function () {
                 }
 		updateAlertInProgress = false;
 		console.log("Successful update of alert information");
-                lastAlertUpdateTime = new Date();
+                lastAlertUpdateTime = timePortal();
                 buildHTML = true;
 	    } else {
 		updateAlertInProgress = false;
@@ -278,7 +296,7 @@ var updateHTML = function () {
     insertionPoint = dom.window.document.querySelector("#forecastTable");
     let count = 0;
     if (JSONObject != null && "properties" in JSONObject) {
-        let reference = new Date();
+        let reference = timePortal();
         let tempPlotData ='var timeZoneOffset = ' + reference.getTimezoneOffset() + '; var reference = new Date(); var reviver = function(name, value) { if (name === \'0\') { value = new Date(value + (reference.getTimezoneOffset() - timeZoneOffset)*60000);} return value;}; var collectedData = JSON.parse(\'{ "temperature" : ';
         let currentDay = dayArray[reference.getDay()];
         for (let forecastObject of JSONObject.properties.periods) {
@@ -382,23 +400,32 @@ var updateHTML = function () {
             //console.log("****historical temp does not match current temp");
         }
         fs.writeFileSync("./plot_data.js", tempPlotData);
-        let temperature = JSONObject.properties.periods[0].temperature;
-        let windSpeed = JSONObject.properties.periods[0].windSpeed;
-        let direction = JSONObject.properties.periods[0].windDirection;
+        let tableIndex;
+        for (tableIndex = 0; tableIndex < JSONObject.properties.periods.length; tableIndex += 1) {
+            if (new Date(JSONObject.properties.periods[tableIndex].startTime) > reference) {
+                break;
+            }
+        }
+        if (tableIndex > 0) {
+            tableIndex -= 1;
+        }
+        let temperature = JSONObject.properties.periods[tableIndex].temperature;
+        let windSpeed = JSONObject.properties.periods[tableIndex].windSpeed;
+        let direction = JSONObject.properties.periods[tableIndex].windDirection;
         let asciiTemperature = temperature + "\xB0F";
         let elements = dom.window.document.querySelectorAll("p");
         for (let element of elements) {
 	    if (element.getAttribute('id') == 'temperature') {
 	        element.innerHTML = asciiTemperature;
 	    } else if (element.getAttribute('id') == 'description') {
-	        element.innerHTML = JSONObject.properties.periods[0].shortForecast;
+	        element.innerHTML = JSONObject.properties.periods[tableIndex].shortForecast;
 	    } else if (element.getAttribute('id') == 'wind') {
 	        element.innerHTML = direction + " @ " + windSpeed;
 	    } else if (element.getAttribute('id') == 'time') {
-	        let dateString = new Date().toString();
+	        let dateString = timePortal().toString();
 	        element.innerHTML = pattern.exec(dateString)[0];
 	    } else if (element.getAttribute('id') == 'range') {
-	        element.innerHTML = temperatureRange[dayArray[(new Date()).getDay()]+"00:00"];
+	        element.innerHTML = temperatureRange[dayArray[(timePortal()).getDay()]+"00:00"];
 	    }
         }
         insertionPoint = dom.window.document.querySelector("#radar");
@@ -434,12 +461,12 @@ var pattern = /[^:]+:\d\d/;
 
 // check for changes 
 setInterval(function(){
-    let delta = new Date() - lastUpdateTime;
-    let alertDelta = new Date() - lastAlertUpdateTime;
-    if (delta > FORECAST_INTERVAL) {
+    let delta = timePortal() - lastUpdateTime;
+    let alertDelta = timePortal() - lastAlertUpdateTime;
+    if (delta > FORECAST_INTERVAL || emulatorTime != null) {
 	updateJSONObject();
     }
-    if (alertDelta > ALERT_INTERVAL) {
+    if (alertDelta > ALERT_INTERVAL || emulatorTime != null) {
         updateAlertInformation();
     }
     if (buildHTML) {
