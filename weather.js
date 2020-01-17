@@ -18,6 +18,7 @@ var http = require("http");
 var https = require("https");
 
 var JSONObject = null;
+var displayObject = {};
 var AlertObject = null;
 var updateInProgress = false;
 var updateAlertInProgress = false;
@@ -420,15 +421,20 @@ var updateHTML = function () {
         for (let element of elements) {
 	    if (element.getAttribute('id') == 'temperature') {
 	        element.innerHTML = asciiTemperature;
+                displayObject.temperature = asciiTemperature;
 	    } else if (element.getAttribute('id') == 'description') {
 	        element.innerHTML = JSONObject.properties.periods[tableIndex].shortForecast;
+                displayObject.description = JSONObject.properties.periods[tableIndex].shortForecast;
 	    } else if (element.getAttribute('id') == 'wind') {
 	        element.innerHTML = direction + " @ " + windSpeed;
+                displayObject.wind = direction + " @ " + windSpeed;
 	    } else if (element.getAttribute('id') == 'time') {
 	        let dateString = timePortal().toString();
 	        element.innerHTML = pattern.exec(dateString)[0];
+                displayObject.time = pattern.exec(dateString)[0];
 	    } else if (element.getAttribute('id') == 'range') {
 	        element.innerHTML = temperatureRange[dayArray[(timePortal()).getDay()]+"00:00"];
+                displayObject.range = temperatureRange[dayArray[(timePortal()).getDay()]+"00:00"];
 	    }
         }
         insertionPoint = dom.window.document.querySelector("#radar");
@@ -488,7 +494,8 @@ app.get("/", function(request, response, next) {
 app.get("/testData", function(request, response, next) {
     let testObject = { APIPlus: JSONObject,
                        hiLow: temperatureRange,
-                       alertInfo: headlines };
+                       alertInfo: headlines,
+                       display: displayObject};
     console.log("processing /testData");
     console.log(request.url);
     console.log(request.method);
