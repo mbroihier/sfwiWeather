@@ -30,6 +30,33 @@ var radarImages = [];
 var headlines = [];
 var emulatorTime = null;
 
+var validateAPIForecast = function(candidateObject) {
+    let status = "properties" in candidateObject && "periods" in candidateObject.properties && candidateObject.properties.periods.length > 0;
+    if (status) { //if initial checks good, look at data ranges
+        for (let forecastObject of candidateObject.properties.periods) {
+            status &= "startTime" in forecastObject;
+            status &= "temperature" in forecastObject;
+            status &= "windSpeed" in forecastObject;
+            status &= "windDirection" in forecastObject;
+            status &= "shortForecast" in forecastObject;
+            if (status) {
+                status &= parseInt(forecastObject.temperature) > -200 && parseInt(forecastObject.temperature) < 200; // limit temperature
+                status &= parseInt(forecastObject.windSpeed) >= 0 && parseInt(forecastObject.windSpeed) < 300; // limit wind
+            }
+            if (! status) {
+                console.log("Validation failed:", forecastObject);
+                break;
+            }
+        }
+    }
+    return status;
+};
+
+var validateAPIAlerts = function(candidateObject) {
+    let status = "features" in candidateObject && candidateObject.features.length >0 && "properties" in candidateObject.features[0] && "headline" in candidateObject.features[0].properties;
+    return status;
+};
+
 var timePortal = function() {
     let returnTime = null;
     if (emulatorTime != null) {
@@ -76,13 +103,63 @@ var updateJSONObject = function () {
 	    //console.log("Document portion:", replyDocument.body.textContent);
 	    try {
 		let replyJSON = JSON.parse(replyDocument.body.textContent); // make JSON object
-                if ("properties" in replyJSON) { // only update if there is information
+                if (validateAPIForecast(replyJSON)) { // only update if there is information
                     JSONObject = replyJSON;
                     if ("emulatorTime" in JSONObject) {
                         emulatorTime = JSONObject["emulatorTime"];
                     }
+		    for (let forecastObject of JSONObject.properties.periods) {
+		        let rowTS = new Date(forecastObject.startTime);
+		        forecastObject.innerHTML = dayArray[rowTS.getDay()] + ((rowTS.getHours() < 10) ? "0":"") + rowTS.getHours() + ":" + ((rowTS.getMinutes() < 10) ? "0" : "") + rowTS.getMinutes();
+		    }
+		    lastUpdateTime = timePortal();
+		    let currentDay = dayArray[timePortal().getDay()];
+		    for (let index=0; index < JSONObject.properties.periods.length; index++ ) { // find min / max temperature for the day
+		        if (JSONObject.properties.periods[index].innerHTML.includes(currentDay)) {
+			    //console.log("Skipping", currentDay);;
+		        } else {
+			    let lowTemp = null;
+			    let highTemp = null;
+			    let foundIndexLow = 0;
+			    let foundIndexHigh = 0;
+                            let increment = 0;
+                            let workingDay = dayArray[(new Date(JSONObject.properties.periods[index].startTime)).getDay()];
+			    //console.log("Processing", JSONObject.properties.periods[index].innerHTML);
+			    for (let trIndex=index; (trIndex < index+24) && (trIndex < JSONObject.properties.periods.length) && (JSONObject.properties.periods[trIndex].innerHTML.includes(workingDay)) && (! JSONObject.properties.periods[trIndex].innerHTML.includes(currentDay)); trIndex++) {
+			        //console.log("Periods index",trIndex);
+			        let temperatureOfInterest = parseInt(JSONObject.properties.periods[trIndex].temperature);
+			        if (lowTemp == null) {
+				    lowTemp = temperatureOfInterest;
+			        } else if (lowTemp > temperatureOfInterest) {
+				    lowTemp = temperatureOfInterest;
+				    foundIndexLow = trIndex;
+			        }
+			        if (highTemp == null) {
+				    highTemp = temperatureOfInterest;
+			        } else if (highTemp < temperatureOfInterest) {
+				    highTemp = temperatureOfInterest;
+				    foundIndexHigh = trIndex;
+			        }
+			    }
+			    for (let trIndex=index; (trIndex < index+24) && (trIndex < JSONObject.properties.periods.length) && (JSONObject.properties.periods[trIndex].innerHTML.includes(workingDay)) && (! JSONObject.properties.periods[trIndex].innerHTML.includes(currentDay)); trIndex++) {
+                                increment += 1;
+			        if (foundIndexLow > foundIndexHigh) {
+				    temperatureRange[JSONObject.properties.periods[trIndex].innerHTML] = "" + highTemp + "\xB0/" + lowTemp + "\xB0";
+			        } else {
+				    temperatureRange[JSONObject.properties.periods[trIndex].innerHTML] = "" + lowTemp + "\xB0/" + highTemp + "\xB0";
+			        }
+			    }
+			    index = index + increment - 1; // advance to next day
+		        }
+		    }
+		    //console.log(temperatureRange);
+		    updateInProgress = false;
+		    if (radarUpdateInProgress == false) {
+		        buildHTML = true;
+		    }
+		    console.log("Successful update of JSON object");
                 } else {
-                    console.log("Error in forecast request - skip a period");
+                    console.log("Error in forecast request did not validate - skipping a period");
                     console.log(replyJSON);
 	            lastUpdateTime = timePortal();
                     if (radarUpdateInProgress == false) {
@@ -90,62 +167,8 @@ var updateJSONObject = function () {
                     }
                 }
 	    } catch (err) {
-		console.log("Error while parsing weather data reply:", err);
-	    }
-	    if (JSONObject != null && "properties" in JSONObject) {
-		for (let forecastObject of JSONObject.properties.periods) {
-		    let rowTS = new Date(forecastObject.startTime);
-		    forecastObject.innerHTML = dayArray[rowTS.getDay()] + ((rowTS.getHours() < 10) ? "0":"") + rowTS.getHours() + ":" + ((rowTS.getMinutes() < 10) ? "0" : "") + rowTS.getMinutes();
-		}
-		lastUpdateTime = timePortal();
-		let currentDay = dayArray[timePortal().getDay()];
-		for (let index=0; index < JSONObject.properties.periods.length; index++ ) { // find min / max temperature for the day
-		    if (JSONObject.properties.periods[index].innerHTML.includes(currentDay)) {
-			//console.log("Skipping", currentDay);;
-		    } else {
-			let lowTemp = null;
-			let highTemp = null;
-			let foundIndexLow = 0;
-			let foundIndexHigh = 0;
-                        let increment = 0;
-                        let workingDay = dayArray[(new Date(JSONObject.properties.periods[index].startTime)).getDay()];
-			//console.log("Processing", JSONObject.properties.periods[index].innerHTML);
-			for (let trIndex=index; (trIndex < index+24) && (trIndex < JSONObject.properties.periods.length) && (JSONObject.properties.periods[trIndex].innerHTML.includes(workingDay)) && (! JSONObject.properties.periods[trIndex].innerHTML.includes(currentDay)); trIndex++) {
-			    //console.log("Periods index",trIndex);
-			    let temperatureOfInterest = parseInt(JSONObject.properties.periods[trIndex].temperature);
-			    if (lowTemp == null) {
-				lowTemp = temperatureOfInterest;
-			    } else if (lowTemp > temperatureOfInterest) {
-				lowTemp = temperatureOfInterest;
-				foundIndexLow = trIndex;
-			    }
-			    if (highTemp == null) {
-				highTemp = temperatureOfInterest;
-			    } else if (highTemp < temperatureOfInterest) {
-				highTemp = temperatureOfInterest;
-				foundIndexHigh = trIndex;
-			    }
-			}
-			for (let trIndex=index; (trIndex < index+24) && (trIndex < JSONObject.properties.periods.length) && (JSONObject.properties.periods[trIndex].innerHTML.includes(workingDay)) && (! JSONObject.properties.periods[trIndex].innerHTML.includes(currentDay)); trIndex++) {
-                            increment += 1;
-			    if (foundIndexLow > foundIndexHigh) {
-				temperatureRange[JSONObject.properties.periods[trIndex].innerHTML] = "" + highTemp + "\xB0/" + lowTemp + "\xB0";
-			    } else {
-				temperatureRange[JSONObject.properties.periods[trIndex].innerHTML] = "" + lowTemp + "\xB0/" + highTemp + "\xB0";
-			    }
-			}
-			index = index + increment - 1; // advance to next day
-		    }
-		}
-		//console.log(temperatureRange);
-		updateInProgress = false;
-		if (radarUpdateInProgress == false) {
-		    buildHTML = true;
-		}
-		console.log("Successful update of JSON object");
-	    } else {
-		updateInProgress = false;
-		console.log("failed to update JSON object");
+		console.log("Error while parsing weather forecast data - not updating JSON object- reply:", err);
+	        lastUpdateTime = timePortal();
 	    }
 	});
 	result.on("error", function(){
@@ -246,28 +269,23 @@ var updateAlertInformation = function () {
 	    //console.log("Document portion:", replyDocument.body.textContent);
 	    try {
 		let replyJSON = JSON.parse(replyDocument.body.textContent); // make JSON object
-                if ("features" in replyJSON) { // only update if there is information
+                if (validateAPIAlerts(replyJSON)) { // only update if valid
                     AlertObject = replyJSON;
+                    headlines = [];
+		    for (let feature of AlertObject.features) {
+                        headlines.push(feature.properties.headline);
+                    }
+		    console.log("Successful update of alert information");
+                    buildHTML = true;
                 } else {
-                    console.log("Error in alert request - skip a period");
+                    console.log("Error in alert request - validation failed - skip a period");
                     console.log(replyJSON);
                 }
-	    } catch (err) {
-		console.log("Error while parsing alert data reply:", err);
-	    }
-	    if (AlertObject != null && "features" in AlertObject) {
-                headlines = [];
-                
-		for (let feature of AlertObject.features) {
-                    headlines.push(feature.properties.headline);
-                }
 		updateAlertInProgress = false;
-		console.log("Successful update of alert information");
                 lastAlertUpdateTime = timePortal();
-                buildHTML = true;
-	    } else {
-		updateAlertInProgress = false;
-		console.log("failed to update alert information");
+	    } catch (err) {
+		console.log("Error while parsing alert data reply - skip a period:", err);
+                lastAlertUpdateTime = timePortal();
 	    }
 	});
 	result.on("error", function(){
