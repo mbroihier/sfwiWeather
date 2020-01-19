@@ -153,7 +153,6 @@ var updateJSONObject = function () {
 		        }
 		    }
 		    //console.log(temperatureRange);
-		    updateInProgress = false;
 		    if (radarUpdateInProgress == false) {
 		        buildHTML = true;
 		    }
@@ -170,6 +169,7 @@ var updateJSONObject = function () {
 		console.log("Error while parsing weather forecast data - not updating JSON object- reply:", err);
 	        lastUpdateTime = timePortal();
 	    }
+            updateInProgress = false;
 	});
 	result.on("error", function(){
 	    console.log("query error on result path");
