@@ -54,6 +54,14 @@ var validateAPIForecast = function(candidateObject) {
 
 var validateAPIAlerts = function(candidateObject) {
     let status = "features" in candidateObject && candidateObject.features.length >0 && "properties" in candidateObject.features[0] && "headline" in candidateObject.features[0].properties;
+    if (status) {
+        for (let feature of candidateObject.features) {
+            status &= "properties" in feature && "headline" in feature.properties;
+            if (!status) {
+                break;
+            }
+        }
+    }
     return status;
 };
 
@@ -285,12 +293,15 @@ var updateAlertInformation = function () {
                 lastAlertUpdateTime = timePortal();
 	    } catch (err) {
 		console.log("Error while parsing alert data reply - skip a period:", err);
+		updateAlertInProgress = false;
                 lastAlertUpdateTime = timePortal();
+	        console.log("Update of alert information failed");
 	    }
 	});
 	result.on("error", function(){
 	    console.log("alert query error on result path");
 	    updateAlertInProgress = false;
+            lastAlertUpdateTime = timePortal();
 	    console.log("Update of alert information failed");
 	});
 
@@ -298,6 +309,7 @@ var updateAlertInformation = function () {
     query.on("error", function(error) {
 	console.log("query error: " + error);
 	updateAlertInProgress = false;
+        lastAlertUpdateTime = timePortal();
 	console.log("Update of alert information failed");
     });
     query.end();
