@@ -61,6 +61,8 @@ var validateAPIAlerts = function(candidateObject) {
                 break;
             }
         }
+    } else {
+        status = "features" in candidateObject && candidateObject.features.length == 0; // no alerts, this is ok
     }
     return status;
 };
