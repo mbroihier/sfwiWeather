@@ -44,7 +44,7 @@ window.onload = function () {
             for (let element of $("tr")) {
                 if (element.hasAttribute('class')) {
                     if (($(element).attr('class') == 'hide')) {
-                        $(element).attr('style', 'display:show');
+                        $(element).attr('style', 'display:table-row');
                     }
                 }
             }

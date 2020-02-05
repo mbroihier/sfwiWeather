@@ -339,7 +339,7 @@ var updateHTML = function () {
 	    if ((count < 24) && forecastObject.innerHTML.includes(currentDay)) {
 	        let tableRow = dom.window.document.createElement("tr");
                 if ((count % 2) == 0) {
-	            tableRow.setAttribute('style', 'display:show');
+	            tableRow.setAttribute('style', 'display:table-row');
                 } else {
 	            tableRow.setAttribute('style', 'display:none');
                     tableRow.setAttribute('class', 'hide');
@@ -365,7 +365,7 @@ var updateHTML = function () {
                      forecastObject.innerHTML.includes('14:00') ||
                      forecastObject.innerHTML.includes('16:00') ||
                      forecastObject.innerHTML.includes('18:00') ) {
-		    tableRow.setAttribute('style', 'display:show');
+		    tableRow.setAttribute('style', 'display:table-row');
 	        } else {
                     tableRow.setAttribute('style', 'display:none');
                     tableRow.setAttribute('class', 'hide');
@@ -509,6 +509,11 @@ setInterval(function(){
     }
     if (alertDelta > ALERT_INTERVAL || emulatorTime != null) {
         updateAlertInformation();
+    }
+    if (alertDelta > 150000 && alertDelta < 160000) {
+        console.log("Delta is too large");
+        console.log("last forecast update time", lastUpdateTime);
+        console.log("last alert update time   ", lastAlertUpdateTime);
     }
     if (buildHTML) {
         updateHTML();
