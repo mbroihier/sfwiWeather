@@ -29,6 +29,7 @@ var dayArray = ["Sun ", "Mon ", "Tue ", "Wed ", "Thu ", "Fri ", "Sat "];
 var radarImages = [];
 var headlines = [];
 var emulatorTime = null;
+var lastForecastStartTime = null;
 
 var validateAPIForecast = function(candidateObject) {
     let status = "properties" in candidateObject && "periods" in candidateObject.properties && candidateObject.properties.periods.length > 0;
@@ -46,6 +47,19 @@ var validateAPIForecast = function(candidateObject) {
             if (! status) {
                 console.log("Validation failed:", forecastObject);
                 break;
+            }
+        }
+        if (status) {
+            if (lastForecastStartTime == null) {
+                lastForecastStartTime = new Date(candidateObject.properties.periods[0].startTime);
+            } else {
+                let firstTableEntryTime = new Date(candidateObject.properties.periods[0].startTime);
+                if (firstTableEntryTime < lastForecastStartTime) {
+                    console.log("Received an older forecast than others that have been received -- rejecting");
+                    status = false;
+                } else {
+                    lastForecastStartTime = firstTableEntryTime;
+                }
             }
         }
     }
@@ -202,6 +216,19 @@ var updateJSONObject = function () {
             process.exit(1);
         }
     });
+    query.on("close", function(error) {
+        if (updateInProgress) {
+	    console.log("close before end - query error: " + error);
+	    updateInProgress = false;
+            if (radarUpdateInProgress == false) {
+                buildHTML = true;
+	    }
+	    console.log("Update of JSON object failed");
+            if (emulatorTime != null) {
+                process.exit(1);
+            }
+        }
+    });
     query.end();
     let ftpClient = https.request({ protocol: "https:", hostname: "radar.weather.gov", path: "/RadarImg/NCR/" + config.radarStation + "/", port: 443, method: "GET", headers: {'User-Agent' : "mbroihier@yahoo.com"}}, function (result) {
 	let bodySegments = [];
@@ -243,6 +270,15 @@ var updateJSONObject = function () {
 	}
 	console.log("ftp query error", error);
     });
+    ftpClient.on("close", function(error) {
+        if (radarUpdateInProgress) {
+	    radarUpdateInProgress = false;
+	    if (updateInProgress == false) {
+	        buildHTML = true;
+	    }
+	    console.log("close before end - ftp query error", error);
+        }
+    });
     ftpClient.end();
 };
 
@@ -279,6 +315,8 @@ var updateAlertInformation = function () {
 	    //console.log("Document portion:", replyDocument.body.textContent);
 	    try {
 		let replyJSON = JSON.parse(replyDocument.body.textContent); // make JSON object
+                fs.writeFileSync("/tmp/alertDebug", replyDocument.body.textContent, {flag:"a"});
+                fs.writeFileSync("/tmp/alertDebug", " resets = " + resets + "\n", {flag:"a"});
                 if (validateAPIAlerts(replyJSON)) { // only update if valid
                     AlertObject = replyJSON;
                     headlines = [];
@@ -308,6 +346,14 @@ var updateAlertInformation = function () {
 	});
 
     });
+    query.on("close", function(error) {
+        if (updateAlertInProgress) {
+	    console.log("closing before processing - query error: " + error);
+	    updateAlertInProgress = false;
+            lastAlertUpdateTime = timePortal();
+	    console.log("Update of alert information failed");
+        }
+    });
     query.on("error", function(error) {
 	console.log("query error: " + error);
 	updateAlertInProgress = false;
@@ -321,10 +367,25 @@ var updateHTML = function () {
     console.log("Updating HTML");
     let dom = new jsdom.JSDOM(mainPageContents);
     let insertionPoint = dom.window.document.querySelector("#alertTable");
+    let noAlertInfo = true;
     for (let headline of headlines) {
+        noAlertInfo = false;
         let tableRow = dom.window.document.createElement("tr");
         let tableCell = dom.window.document.createElement("td");
 	tableCell.innerHTML = headline;
+	tableRow.appendChild(tableCell);
+	insertionPoint.appendChild(tableRow);
+    }
+    if (noAlertInfo) {
+        let tableRow = dom.window.document.createElement("tr");
+        let tableCell = dom.window.document.createElement("td");
+	tableCell.innerHTML = "No alert information.  Last alert information update time: " + lastAlertUpdateTime + " <br>Current update activity status is: " + (updateAlertInProgress ? "Processing" : "Processing Complete" + " <br>Resets: " + resets);
+	tableRow.appendChild(tableCell);
+	insertionPoint.appendChild(tableRow);
+    } else {
+        let tableRow = dom.window.document.createElement("tr");
+        let tableCell = dom.window.document.createElement("td");
+	tableCell.innerHTML = "Last alert information update time: " + lastAlertUpdateTime + " <br>Current update activity status is: " + (updateAlertInProgress ? "Processing" : "Processing Complete" + " <br>Resets: " + resets);
 	tableRow.appendChild(tableCell);
 	insertionPoint.appendChild(tableRow);
     }
@@ -403,10 +464,13 @@ var updateHTML = function () {
                             for (let lRHIndex = 5; lRHIndex >= 0; lRHIndex -= 1) {
                                 historicalTemp.push([startTime - lRHIndex*3600000, forecastObject.temperature]);
                             }
+                            lastRecordedHour = startTime;
                         } else {
-                            historicalTemp.push([startTime, forecastObject.temperature]);
+		            if (startTime > lastRecordedHour) {
+                                historicalTemp.push([startTime, forecastObject.temperature]);
+                                lastRecordedHour = startTime;  // only record if newer data
+                            } 
                         }
-                        lastRecordedHour = startTime;
                     }
                     if (historicalTemp.length > 6) {
                         historicalTemp.shift();
@@ -488,11 +552,13 @@ var updateHTML = function () {
 
 var lastUpdateTime = null;
 var lastAlertUpdateTime = null;
+var resets = 0;
 
 // initialize global information
 
 var FORECAST_INTERVAL = 600000;
 var ALERT_INTERVAL    = 120000;
+var TOO_LONG = FORECAST_INTERVAL * 3;
 
 var debug = false;
 
@@ -510,10 +576,17 @@ setInterval(function(){
     if (alertDelta > ALERT_INTERVAL || emulatorTime != null) {
         updateAlertInformation();
     }
-    if (alertDelta > 150000 && alertDelta < 160000) {
-        console.log("Delta is too large");
-        console.log("last forecast update time", lastUpdateTime);
-        console.log("last alert update time   ", lastAlertUpdateTime);
+    if ((lastAlertUpdateTime != null) && alertDelta > TOO_LONG) {
+        console.log("alert query has timed out and is being cleared");
+        updateAlertInProgress = false;
+        resets++;
+        lastAlertUpdateTime = timePortal();
+    }
+    if ((lastUpdateTime != null) && delta > TOO_LONG) {
+        console.log("forecast/radar query has timed out and is being cleared");
+        updateInProgress = false;
+        resets++;
+        lastUpdateTime = timePortal();
     }
     if (buildHTML) {
         updateHTML();
