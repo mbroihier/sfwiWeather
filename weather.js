@@ -18,14 +18,18 @@ var http = require("http");
 var https = require("https");
 
 var JSONObject = null;
+var observedJSONObjectForecasts = {temperature: {}, windSpeed: {}, windDirection: {}, shortForecast: {}, lowTemp: {}, highTemp: {}, foundIndexLow: {}, foundIndexHigh: {}, temperatureRange: {}};
 var displayObject = {};
 var AlertObject = null;
 var updateInProgress = false;
 var updateAlertInProgress = false;
 var radarUpdateInProgress = false;
 var buildHTML = false;
-var temperatureRange = {};
 var dayArray = ["Sun ", "Mon ", "Tue ", "Wed ", "Thu ", "Fri ", "Sat "];
+var directionSymbol = {"N": "&#x2191;", "S" : "&#x2193;", "E" : "&#x2192;", "W" : "&#x2190;",
+                       "NE" : "&#x2197;", "NW" : "&#x2196;", "SE" : "&#x2198;", "SW" : "&#x2199;",
+                       "NNE" : "&#x2197;", "NNW" : "&#x2196;", "SSE" : "&#x2198;", "SSW" : "&#x2199;",
+                       "WNW" : "&#x2196;", "WSW" : "&#x2199;", "ENE" : "&#x2197;", "ESE" : "&#x2198;"};
 var radarImages = [];
 var headlines = [];
 var emulatorTime = null;
@@ -92,12 +96,6 @@ var timePortal = function() {
     return returnTime;
 };
 
-for (let day of dayArray) {
-    for (let hour=0; hour < 24; hour++) {
-	temperatureRange[day + ((hour < 10)? "0":"") + hour + ":00"] = "";
-    }
-}
-
 var updateJSONObject = function () {
     if (updateInProgress || radarUpdateInProgress) {
 	console.log("exiting update - update is in progress");
@@ -127,64 +125,86 @@ var updateJSONObject = function () {
 	    //console.log("Document portion:", replyDocument.body.textContent);
 	    try {
 		let replyJSON = JSON.parse(replyDocument.body.textContent); // make JSON object
-                if (validateAPIForecast(replyJSON)) { // only update if there is information
+                if (validateAPIForecast(replyJSON)) { // only update if there is valid information
                     JSONObject = replyJSON;
+                    let targetTS = new Date(JSONObject.properties.periods[0].startTime);
+                    for (let index=0; index < JSONObject.properties.periods.length; index++) {  // copy what we want to linger
+                        observedJSONObjectForecasts.temperature[targetTS] = JSONObject.properties.periods[index].temperature;
+                        observedJSONObjectForecasts.windSpeed[targetTS] = JSONObject.properties.periods[index].windSpeed;
+                        observedJSONObjectForecasts.windDirection[targetTS] = JSONObject.properties.periods[index].windDirection;
+                        observedJSONObjectForecasts.shortForecast[targetTS] = JSONObject.properties.periods[index].shortForecast;
+                        targetTS = new Date(targetTS.getTime() + TABLE_TIME_INCREMENT);
+                    }
                     if ("emulatorTime" in JSONObject) {
                         emulatorTime = JSONObject["emulatorTime"];
                     }
-		    for (let forecastObject of JSONObject.properties.periods) {
-		        let rowTS = new Date(forecastObject.startTime);
-		        forecastObject.innerHTML = dayArray[rowTS.getDay()] + ((rowTS.getHours() < 10) ? "0":"") + rowTS.getHours() + ":" + ((rowTS.getMinutes() < 10) ? "0" : "") + rowTS.getMinutes();
-		    }
+                    let staleThreshold = timePortal() - OLDEST_ALLOWED_DATA;
+                    for (let entry in observedJSONObjectForecasts.temperature) {  // eliminate stale data
+                        if (new Date(entry) < staleThreshold) {
+                            delete observedJSONObjectForecasts.temperature[entry];
+                            delete observedJSONObjectForecasts.windSpeed[entry];
+                            delete observedJSONObjectForecasts.windDirection[entry];
+                            delete observedJSONObjectForecasts.shortForecast[entry];
+                        }
+                    }
+                    // console.log(observedJSONObjectForecasts);
 		    lastUpdateTime = timePortal();
-		    let currentDay = dayArray[timePortal().getDay()];
-		    for (let index=0; index < JSONObject.properties.periods.length; index++ ) { // find min / max temperature for the day
-		        if (JSONObject.properties.periods[index].innerHTML.includes(currentDay)) {
-			    //console.log("Skipping", currentDay);;
-		        } else {
-			    let lowTemp = null;
-			    let highTemp = null;
-			    let foundIndexLow = 0;
-			    let foundIndexHigh = 0;
-                            let increment = 0;
-                            let workingDay = dayArray[(new Date(JSONObject.properties.periods[index].startTime)).getDay()];
-			    //console.log("Processing", JSONObject.properties.periods[index].innerHTML);
-			    for (let trIndex=index; (trIndex < index+24) && (trIndex < JSONObject.properties.periods.length) && (JSONObject.properties.periods[trIndex].innerHTML.includes(workingDay)) && (! JSONObject.properties.periods[trIndex].innerHTML.includes(currentDay)); trIndex++) {
-			        //console.log("Periods index",trIndex);
-			        let temperatureOfInterest = parseInt(JSONObject.properties.periods[trIndex].temperature);
-			        if (lowTemp == null) {
-				    lowTemp = temperatureOfInterest;
-			        } else if (lowTemp > temperatureOfInterest) {
-				    lowTemp = temperatureOfInterest;
-				    foundIndexLow = trIndex;
-			        }
-			        if (highTemp == null) {
-				    highTemp = temperatureOfInterest;
-			        } else if (highTemp < temperatureOfInterest) {
-				    highTemp = temperatureOfInterest;
-				    foundIndexHigh = trIndex;
-			        }
-			    }
-			    for (let trIndex=index; (trIndex < index+24) && (trIndex < JSONObject.properties.periods.length) && (JSONObject.properties.periods[trIndex].innerHTML.includes(workingDay)) && (! JSONObject.properties.periods[trIndex].innerHTML.includes(currentDay)); trIndex++) {
-                                increment += 1;
-			        if (foundIndexLow > foundIndexHigh) {
-				    temperatureRange[JSONObject.properties.periods[trIndex].innerHTML] = "" + highTemp + "\xB0/" + lowTemp + "\xB0";
-			        } else {
-				    temperatureRange[JSONObject.properties.periods[trIndex].innerHTML] = "" + lowTemp + "\xB0/" + highTemp + "\xB0";
-			        }
-			    }
-			    index = index + increment - 1; // advance to next day
-		        }
-		    }
-		    //console.log(temperatureRange);
-		    if (radarUpdateInProgress == false) {
-		        buildHTML = true;
-		    }
-		    console.log("Successful update of JSON object");
+                    let objectIndex = new Date(timePortal() - (timePortal() % (3600*1000)));
+                    let isCurrentDay = true;
+		    while (objectIndex in observedJSONObjectForecasts.temperature) {
+                        let lowTemp = null;
+                        let highTemp = null;
+                        let foundIndexLow = 0;
+                        let foundIndexHigh = 0;
+                        let workingHour = objectIndex.getHours();
+                        let listOfObjects = [];
+                        if (isCurrentDay && (objectIndex in observedJSONObjectForecasts.temperatureRange)) {
+                            // if we are processing information for the current day, let lows float lower and highs
+                            // rise higher, but don't start from scratch
+                            lowTemp = observedJSONObjectForecasts.lowTemp[objectIndex];
+                            highTemp = observedJSONObjectForecasts.highTemp[objectIndex];
+                            foundIndexLow = observedJSONObjectForecasts.foundIndexLow[objectIndex];
+                            foundIndexHigh = observedJSONObjectForecasts.foundIndexHigh[objectIndex];
+                            isCurrentDay = false;
+                        }
+                        let temperatureOfInterest;
+                        do  {
+                            temperatureOfInterest = parseInt(observedJSONObjectForecasts.temperature[objectIndex]);
+                            console.log(temperatureOfInterest);
+                            if (lowTemp == null) {
+                                lowTemp = temperatureOfInterest;
+                            } else if (lowTemp > temperatureOfInterest) {
+	                        lowTemp = temperatureOfInterest;
+                                foundIndexLow = workingHour;
+                            }
+                            if (highTemp == null) {
+	                        highTemp = temperatureOfInterest;
+	                    } else if (highTemp < temperatureOfInterest) {
+                                highTemp = temperatureOfInterest;
+                                foundIndexHigh = workingHour;
+                            }
+                            listOfObjects.push(objectIndex.toString());
+                            objectIndex = new Date(objectIndex.getTime() + TABLE_TIME_INCREMENT);
+                            workingHour = objectIndex.getHours();
+                        } while ((workingHour != 0) && (objectIndex in observedJSONObjectForecasts.temperature));
+                        let rangeText = (foundIndexLow > foundIndexHigh)  ? ("" + highTemp + "\xB0/" + lowTemp + "\xB0") : ("" + lowTemp + "\xB0/" + highTemp + "\xB0");
+                        for (let backFillIndex of listOfObjects) {
+                            observedJSONObjectForecasts.lowTemp[backFillIndex] = lowTemp;
+                            observedJSONObjectForecasts.highTemp[backFillIndex] = highTemp;
+                            observedJSONObjectForecasts.foundIndexLow[backFillIndex] = foundIndexLow;
+                            observedJSONObjectForecasts.foundIndexHigh[backFillIndex] = foundIndexHigh;
+                            observedJSONObjectForecasts.temperatureRange[backFillIndex] = rangeText;
+                        }
+                    }
+                    console.log(observedJSONObjectForecasts);
+                    if (radarUpdateInProgress == false) {
+                        buildHTML = true;
+                    }
+                    console.log("Successful update of JSON object");
                 } else {
                     console.log("Error in forecast request did not validate - skipping a period");
                     console.log(replyJSON);
-	            lastUpdateTime = timePortal();
+                    lastUpdateTime = timePortal();
                     if (radarUpdateInProgress == false) {
                         buildHTML = true;
                     }
@@ -195,31 +215,31 @@ var updateJSONObject = function () {
 	    }
             updateInProgress = false;
 	});
-	result.on("error", function(){
-	    console.log("query error on result path");
-	    updateInProgress = false;
-	    if (radarUpdateInProgress == false) {
-		buildHTML = true;
-	    }
-	    console.log("Update of JSON object failed");
-	});
+        result.on("error", function(){
+            console.log("query error on result path");
+            updateInProgress = false;
+            if (radarUpdateInProgress == false) {
+	        buildHTML = true;
+            }
+            console.log("Update of JSON object failed");
+        });
 
     });
     query.on("error", function(error) {
-	console.log("query error: " + error);
-	updateInProgress = false;
+        console.log("query error: " + error);
+        updateInProgress = false;
         if (radarUpdateInProgress == false) {
             buildHTML = true;
-	}
-	console.log("Update of JSON object failed");
+        }
+        console.log("Update of JSON object failed");
         if (emulatorTime != null) {
             process.exit(1);
         }
     });
     query.on("close", function(error) {
         if (updateInProgress) {
-	    console.log("close before end - query error: " + error);
-	    updateInProgress = false;
+            console.log("close before end - query error: " + error);
+            updateInProgress = false;
             if (radarUpdateInProgress == false) {
                 buildHTML = true;
 	    }
@@ -284,7 +304,6 @@ var updateJSONObject = function () {
 
 var mainPageDOM = null;
 var next12Hours = {};
-var lastRecordedHour = 0;
 var historicalTemp = [];
 
 var updateAlertInformation = function () {
@@ -389,15 +408,17 @@ var updateHTML = function () {
 	tableRow.appendChild(tableCell);
 	insertionPoint.appendChild(tableRow);
     }
-    // fill in forecast table and estimate temperature at time of table generation
+    // fill in forecast table
     insertionPoint = dom.window.document.querySelector("#forecastTable");
     let count = 0;
     if (JSONObject != null && "properties" in JSONObject) {
         let reference = timePortal();
+        let objectIndex = new Date(reference.getTime() - (reference.getTime() % (3600*1000)));
         let tempPlotData ='var timeZoneOffset = ' + reference.getTimezoneOffset() + '; var reference = new Date(); var reviver = function(name, value) { if (name === \'0\') { value = new Date(value + (reference.getTimezoneOffset() - timeZoneOffset)*60000);} return value;}; var collectedData = JSON.parse(\'{ "temperature" : ';
         let currentDay = dayArray[reference.getDay()];
-        for (let forecastObject of JSONObject.properties.periods) {
-	    if ((count < 24) && forecastObject.innerHTML.includes(currentDay)) {
+        while (objectIndex in observedJSONObjectForecasts.temperature) {
+            let tableTimeStamp = dayArray[objectIndex.getDay()] + " " + ((objectIndex.getHours() < 10) ? "0" : "") + objectIndex.getHours() + ":00";
+	    if ((count < 24) && (dayArray[objectIndex.getDay()] == currentDay)) {
 	        let tableRow = dom.window.document.createElement("tr");
                 if ((count % 2) == 0) {
 	            tableRow.setAttribute('style', 'display:table-row');
@@ -406,43 +427,43 @@ var updateHTML = function () {
                     tableRow.setAttribute('class', 'hide');
                 }
                 let tableCellDate = dom.window.document.createElement("td");
-	        tableCellDate.innerHTML = forecastObject.innerHTML;
+	        tableCellDate.innerHTML = tableTimeStamp;
 	        tableRow.appendChild(tableCellDate);
 	        let tableCellTemp = dom.window.document.createElement("td");
-	        tableCellTemp.innerHTML = forecastObject.temperature;
+	        tableCellTemp.innerHTML = observedJSONObjectForecasts.temperature[objectIndex];
 	        tableCellTemp.setAttribute('style', 'text-align:center');
 	        tableRow.appendChild(tableCellTemp);
 	        let tableCellWind = dom.window.document.createElement("td");
-	        tableCellWind.innerHTML = forecastObject.windSpeed;
+	        tableCellWind.innerHTML = directionSymbol[observedJSONObjectForecasts.windDirection[objectIndex]] + observedJSONObjectForecasts.windSpeed[objectIndex];
 	        tableRow.appendChild(tableCellWind);
 	        let tableCellDesc = dom.window.document.createElement("td");
-	        tableCellDesc.innerHTML = forecastObject.shortForecast;
+	        tableCellDesc.innerHTML = observedJSONObjectForecasts.shortForecast[objectIndex];
 	        tableRow.appendChild(tableCellDesc);
 	        insertionPoint.appendChild(tableRow);
 	    } else {
 	        let tableRow = dom.window.document.createElement("tr");
-	        if ( forecastObject.innerHTML.includes('10:00') ||
-                     forecastObject.innerHTML.includes('12:00') ||
-                     forecastObject.innerHTML.includes('14:00') ||
-                     forecastObject.innerHTML.includes('16:00') ||
-                     forecastObject.innerHTML.includes('18:00') ) {
+	        if ( tableTimeStamp.includes('10:00') ||
+                     tableTimeStamp.includes('12:00') ||
+                     tableTimeStamp.includes('14:00') ||
+                     tableTimeStamp.includes('16:00') ||
+                     tableTimeStamp.includes('18:00') ) {
 		    tableRow.setAttribute('style', 'display:table-row');
 	        } else {
                     tableRow.setAttribute('style', 'display:none');
                     tableRow.setAttribute('class', 'hide');
 	        }		
 	        let tableCellDate = dom.window.document.createElement("td");
-	        tableCellDate.innerHTML = forecastObject.innerHTML;
+	        tableCellDate.innerHTML = tableTimeStamp;
 	        tableRow.appendChild(tableCellDate);
 	        let tableCellTemp = dom.window.document.createElement("td");
-	        tableCellTemp.innerHTML = forecastObject.temperature;
+	        tableCellTemp.innerHTML = observedJSONObjectForecasts.temperature[objectIndex];
 	        tableCellTemp.setAttribute('style', 'text-align:center');
 	        tableRow.appendChild(tableCellTemp);
 	        let tableCellWind = dom.window.document.createElement("td");
-	        tableCellWind.innerHTML = forecastObject.windSpeed;
+	        tableCellWind.innerHTML = directionSymbol[observedJSONObjectForecasts.windDirection[objectIndex]] + observedJSONObjectForecasts.windSpeed[objectIndex];
 	        tableRow.appendChild(tableCellWind);
 	        let tableCellDesc = dom.window.document.createElement("td");
-	        tableCellDesc.innerHTML = forecastObject.shortForecast;
+	        tableCellDesc.innerHTML = observedJSONObjectForecasts.shortForecast[objectIndex];
 	        tableRow.appendChild(tableCellDesc);
 	        insertionPoint.appendChild(tableRow);
 	    }
@@ -453,38 +474,25 @@ var updateHTML = function () {
 	        } else {
 		    tempPlotData += ",[";
 	        }
-                let startTime = (new Date(forecastObject.startTime)).getTime();
+                let startTime = objectIndex.getTime();
 	        tempPlotData += startTime + ',';
-	        tempPlotData += forecastObject.temperature + ']';
+	        tempPlotData += observedJSONObjectForecasts.temperature[objectIndex] + ']';
                 if (count === 0) {
 	            tempPlotData += ",[" +startTime + ','; // add an extra start point - plot weirdness
-	            tempPlotData += forecastObject.temperature + ']';
-                    if (startTime != lastRecordedHour) {
-                        if (lastRecordedHour === 0 ) { //first time
-                            for (let lRHIndex = 5; lRHIndex >= 0; lRHIndex -= 1) {
-                                historicalTemp.push([startTime - lRHIndex*3600000, forecastObject.temperature]);
-                            }
-                            lastRecordedHour = startTime;
-                        } else {
-		            if (startTime > lastRecordedHour) {
-                                historicalTemp.push([startTime, forecastObject.temperature]);
-                                lastRecordedHour = startTime;  // only record if newer data
-                            } 
-                        }
-                    }
-                    if (historicalTemp.length > 6) {
-                        historicalTemp.shift();
-                    }
-                    console.log(historicalTemp);
+	            tempPlotData += observedJSONObjectForecasts.temperature[objectIndex] + ']';
                 }
 	    }
+            objectIndex = new Date(objectIndex.getTime() + TABLE_TIME_INCREMENT);
 	    count += 1;
         }
-        if (historicalTemp[5][1] != JSONObject.properties.periods[0].temperature) {
-            // this sometimes happens when the forecasted temperature changes during the current hour
-            // update the entry so it doesn't look odd
-            historicalTemp[5][1] = JSONObject.properties.periods[0].temperature;
-            //console.log("****historical temp does not match current temp");
+        objectIndex = new Date(reference.getTime() - (reference.getTime() % (3600*1000)));
+        let historicalObjectIndex = new Date(objectIndex - 6 * TABLE_TIME_INCREMENT);
+        historicalTemp = [];
+        while (historicalObjectIndex <= objectIndex) {
+            if (historicalObjectIndex in observedJSONObjectForecasts.temperature) {
+                historicalTemp.push([historicalObjectIndex.getTime(), observedJSONObjectForecasts.temperature[historicalObjectIndex]]);
+            }
+            historicalObjectIndex = new Date(historicalObjectIndex.getTime() + TABLE_TIME_INCREMENT);
         }
         tempPlotData += "], \"oldTemperature\": ";
         count = 0;
@@ -500,18 +508,10 @@ var updateHTML = function () {
         tempPlotData += "]}',reviver);";
         console.log (tempPlotData);
         fs.writeFileSync("./plot_data.js", tempPlotData);
-        let tableIndex;
-        for (tableIndex = 0; tableIndex < JSONObject.properties.periods.length; tableIndex += 1) {
-            if (new Date(JSONObject.properties.periods[tableIndex].startTime) > reference) {
-                break;
-            }
-        }
-        if (tableIndex > 0) {
-            tableIndex -= 1;
-        }
-        let temperature = JSONObject.properties.periods[tableIndex].temperature;
-        let windSpeed = JSONObject.properties.periods[tableIndex].windSpeed;
-        let direction = JSONObject.properties.periods[tableIndex].windDirection;
+        objectIndex = new Date(reference.getTime() - (reference.getTime() % (3600*1000)));
+        let temperature = observedJSONObjectForecasts.temperature[objectIndex];
+        let windSpeed = observedJSONObjectForecasts.windSpeed[objectIndex];
+        let direction = observedJSONObjectForecasts.windDirection[objectIndex];
         let asciiTemperature = temperature + "\xB0F";
         let elements = dom.window.document.querySelectorAll("p");
         for (let element of elements) {
@@ -519,8 +519,8 @@ var updateHTML = function () {
 	        element.innerHTML = asciiTemperature;
                 displayObject.temperature = asciiTemperature;
 	    } else if (element.getAttribute('id') == 'description') {
-	        element.innerHTML = JSONObject.properties.periods[tableIndex].shortForecast;
-                displayObject.description = JSONObject.properties.periods[tableIndex].shortForecast;
+                element.innerHTML = observedJSONObjectForecasts.shortForecast[objectIndex];
+                displayObject.description = observedJSONObjectForecasts.shortForecast[objectIndex];
 	    } else if (element.getAttribute('id') == 'wind') {
 	        element.innerHTML = direction + " @ " + windSpeed;
                 displayObject.wind = direction + " @ " + windSpeed;
@@ -529,8 +529,8 @@ var updateHTML = function () {
 	        element.innerHTML = pattern.exec(dateString)[0];
                 displayObject.time = pattern.exec(dateString)[0];
 	    } else if (element.getAttribute('id') == 'range') {
-	        element.innerHTML = temperatureRange[dayArray[(timePortal()).getDay()]+"00:00"];
-                displayObject.range = temperatureRange[dayArray[(timePortal()).getDay()]+"00:00"];
+	        element.innerHTML = observedJSONObjectForecasts.temperatureRange[objectIndex];
+                displayObject.range = observedJSONObjectForecasts.temperatureRange[objectIndex];
 	    }
         }
         insertionPoint = dom.window.document.querySelector("#radar");
@@ -559,6 +559,8 @@ var resets = 0;
 var FORECAST_INTERVAL = 600000;
 var ALERT_INTERVAL    = 120000;
 var TOO_LONG = FORECAST_INTERVAL * 3;
+var TABLE_TIME_INCREMENT = 3600000;
+var OLDEST_ALLOWED_DATA = 10 * 3600000;
 
 var debug = false;
 
@@ -571,7 +573,7 @@ setInterval(function(){
     let delta = timePortal() - lastUpdateTime;
     let alertDelta = timePortal() - lastAlertUpdateTime;
     if (delta > FORECAST_INTERVAL || emulatorTime != null) {
-	updateJSONObject();
+        updateJSONObject();
     }
     if (alertDelta > ALERT_INTERVAL || emulatorTime != null) {
         updateAlertInformation();
@@ -602,8 +604,7 @@ app.get("/", function(request, response, next) {
     response.send(mainPageDOM.serialize());
 });
 app.get("/testData", function(request, response, next) {
-    let testObject = { APIPlus: JSONObject,
-                       hiLow: temperatureRange,
+    let testObject = { forecastInfo: observedJSONObjectForecasts,
                        alertInfo: headlines,
                        display: displayObject};
     console.log("processing /testData");
