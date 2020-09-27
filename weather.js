@@ -89,7 +89,6 @@ var updateJSONObject = function () {
 	console.log("exiting update - update is in progress");
 	return;
     }
-    lastUpdateTime = timePortal();
     updateInProgress = true;
     radarUpdateInProgress = true;
     console.log("Updating JSON object using ", config.forecastURL, config.forecastPath);
@@ -123,6 +122,7 @@ var updateJSONObject = function () {
 		        let rowTS = new Date(forecastObject.startTime);
 		        forecastObject.innerHTML = dayArray[rowTS.getDay()] + ((rowTS.getHours() < 10) ? "0":"") + rowTS.getHours() + ":" + ((rowTS.getMinutes() < 10) ? "0" : "") + rowTS.getMinutes();
 		    }
+		    lastUpdateTime = timePortal();
 		    let currentDay = dayArray[timePortal().getDay()];
 		    for (let index=0; index < JSONObject.properties.periods.length; index++ ) { // find min / max temperature for the day
 		        if (JSONObject.properties.periods[index].innerHTML.includes(currentDay)) {
@@ -170,12 +170,14 @@ var updateJSONObject = function () {
                 } else {
                     console.log("Error in forecast request did not validate - skipping a period");
                     console.log(replyJSON);
+	            lastUpdateTime = timePortal();
                     if (radarUpdateInProgress == false) {
                         buildHTML = true;
                     }
                 }
 	    } catch (err) {
 		console.log("Error while parsing weather forecast data - not updating JSON object- reply:", err);
+	        lastUpdateTime = timePortal();
 	    }
             updateInProgress = false;
 	});
@@ -254,7 +256,6 @@ var updateAlertInformation = function () {
         console.log("exiting alert update - update is in progress");
         return;
     }
-    lastAlertUpdateTime = timePortal();
     updateAlertInProgress = true;
     console.log("Updating alert information using ", config.forecastURL, config.zone);
     let queryType = null;
@@ -291,15 +292,18 @@ var updateAlertInformation = function () {
                     console.log(replyJSON);
                 }
 		updateAlertInProgress = false;
+                lastAlertUpdateTime = timePortal();
 	    } catch (err) {
 		console.log("Error while parsing alert data reply - skip a period:", err);
 		updateAlertInProgress = false;
+                lastAlertUpdateTime = timePortal();
 	        console.log("Update of alert information failed");
 	    }
 	});
 	result.on("error", function(){
 	    console.log("alert query error on result path");
 	    updateAlertInProgress = false;
+            lastAlertUpdateTime = timePortal();
 	    console.log("Update of alert information failed");
 	});
 
@@ -307,6 +311,7 @@ var updateAlertInformation = function () {
     query.on("error", function(error) {
 	console.log("query error: " + error);
 	updateAlertInProgress = false;
+        lastAlertUpdateTime = timePortal();
 	console.log("Update of alert information failed");
     });
     query.end();
