@@ -34,6 +34,7 @@ var radarImages = [];
 var headlines = [];
 var emulatorTime = null;
 var lastForecastStartTime = null;
+var fileName = "";
 
 var validateAPIForecast = function(candidateObject) {
     let status = "properties" in candidateObject && "periods" in candidateObject.properties && candidateObject.properties.periods.length > 0;
@@ -89,7 +90,7 @@ var timePortal = function() {
     let returnTime = null;
     if (emulatorTime != null) {
         returnTime = new Date(emulatorTime);
-        console.log("timePortal: ", returnTime, dayArray[returnTime.getDay()], returnTime.getHours(), returnTime.getMinutes());
+        //console.log("timePortal: ", returnTime, dayArray[returnTime.getDay()], returnTime.getHours(), returnTime.getMinutes());
     } else {
         returnTime = new Date();
     }
@@ -138,6 +139,9 @@ var updateJSONObject = function () {
                     if ("emulatorTime" in JSONObject) {
                         emulatorTime = JSONObject["emulatorTime"];
                     }
+                    if ("fileName" in JSONObject) {
+                        fileName = JSONObject["fileName"];
+                    }
                     let staleThreshold = timePortal() - OLDEST_ALLOWED_DATA;
                     for (let entry in observedJSONObjectForecasts.temperature) {  // eliminate stale data
                         if (new Date(entry) < staleThreshold) {
@@ -170,7 +174,6 @@ var updateJSONObject = function () {
                         let temperatureOfInterest;
                         do  {
                             temperatureOfInterest = parseInt(observedJSONObjectForecasts.temperature[objectIndex]);
-                            console.log(temperatureOfInterest);
                             if (lowTemp == null) {
                                 lowTemp = temperatureOfInterest;
                             } else if (lowTemp > temperatureOfInterest) {
@@ -196,7 +199,7 @@ var updateJSONObject = function () {
                             observedJSONObjectForecasts.temperatureRange[backFillIndex] = rangeText;
                         }
                     }
-                    console.log(observedJSONObjectForecasts);
+                    //console.log(observedJSONObjectForecasts);
                     if (radarUpdateInProgress == false) {
                         buildHTML = true;
                     }
@@ -245,7 +248,8 @@ var updateJSONObject = function () {
 	    }
 	    console.log("Update of JSON object failed");
             if (emulatorTime != null) {
-                process.exit(1);
+                // do nothing - this appears to be the API emulator running out of queue space (5 pending requests)
+                //process.exit(1);
             }
         }
     });
@@ -506,7 +510,7 @@ var updateHTML = function () {
             count += 1;
         }
         tempPlotData += "]}',reviver);";
-        console.log (tempPlotData);
+        //console.log (tempPlotData);
         fs.writeFileSync("./plot_data.js", tempPlotData);
         objectIndex = new Date(reference.getTime() - (reference.getTime() % (3600*1000)));
         let temperature = observedJSONObjectForecasts.temperature[objectIndex];
@@ -606,7 +610,8 @@ app.get("/", function(request, response, next) {
 app.get("/testData", function(request, response, next) {
     let testObject = { forecastInfo: observedJSONObjectForecasts,
                        alertInfo: headlines,
-                       display: displayObject};
+                       display: displayObject,
+                       fileName: fileName };
     console.log("processing /testData");
     console.log(request.url);
     console.log(request.method);
